@@ -1,4 +1,4 @@
-﻿# [PROJECT_CODE] - [PROJECT_NAME]
+# [PROJECT_CODE] - [PROJECT_NAME]
 
 ## Thành viên
 
