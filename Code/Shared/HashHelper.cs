@@ -2,33 +2,38 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Shared
 {
     public static class HashHelper
     {
-        public static string CalculateSha256(string filePath)
+        public static async Task<string> CalculateSha256(string filePath)
         {
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                throw new ArgumentException("Error: Duong dan file khong duoc trong", nameof(filePath));
+            }
+
             if (!File.Exists(filePath))
             {
-                throw new Exception("Error: Khong tim thay duong dan");
+                throw new FileNotFoundException("Error: Khong the tim thay file", filePath);
             }
 
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                using (FileStream fileStream = File.OpenRead(filePath))
-                {
-                    byte[] hashByte = sha256.ComputeHash(fileStream);
+            await using var fileStream = new FileStream
+            (
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 4096,
+                useAsync: true
+            );
+            using var sha256 = SHA256.Create();
 
-                    StringBuilder result = new StringBuilder();
-                    for (int i = 0; i < hashByte.Length; i++)
-                    {
-                        result.Append(hashByte[i].ToString("x2"));
-                    }
+            byte[] hashBytes = await sha256.ComputeHashAsync(fileStream);
 
-                    return result.ToString();
-                }
-            }
+            return Convert.ToHexString(hashBytes).ToLower();
         }
     }
 }
