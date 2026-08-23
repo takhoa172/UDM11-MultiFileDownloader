@@ -9,7 +9,7 @@ namespace Client.Logic
         // Khai báo SemaphoreSlim để giới hạn số luồng
         private readonly SemaphoreSlim _semaphore;
 
-        // Hàm khởi tạo (Constructor). Theo yêu cầu nhóm, giới hạn tối đa 3 file tải cùng lúc
+        // Hàm khởi tạo (Constructor). Theo yêu cầu, giới hạn tối đa 3 file tải cùng lúc
         public DownloadManager(int maxConcurrentDownloads = 3)
         {
             _semaphore = new SemaphoreSlim(maxConcurrentDownloads);
