@@ -2,11 +2,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Client.Logic // Lưu ý đổi tên namespace cho khớp với cấu trúc thư mục của team bạn
+namespace Client.Logic 
 {
     public class DownloadManager
     {
-        // Khai báo "bác bảo vệ" SemaphoreSlim để giới hạn số luồng (task)
+        // Khai báo SemaphoreSlim để giới hạn số luồng
         private readonly SemaphoreSlim _semaphore;
 
         // Hàm khởi tạo (Constructor). Theo yêu cầu nhóm, giới hạn tối đa 3 file tải cùng lúc
@@ -26,10 +26,9 @@ namespace Client.Logic // Lưu ý đổi tên namespace cho khớp với cấu t
             {
                 // 2. BẮT ĐẦU TẢI FILE
                 // Ngay khi qua được cổng, file sẽ bắt đầu tải.
-                // (Sau này bạn sẽ thay chỗ này bằng code gọi core TCP của Đức Duy và code lưu file)
                 Console.WriteLine($"[ĐANG TẢI] Bắt đầu tải file: {fileName}...");
 
-                // Giả lập thời gian tải file mất 3 giây để bạn dễ test nghiệm thu
+                // Giả lập thời gian tải file 3 giây để test 
                 await Task.Delay(3000);
 
                 Console.WriteLine($"[THÀNH CÔNG] Đã tải xong: {fileName}");
@@ -41,7 +40,7 @@ namespace Client.Logic // Lưu ý đổi tên namespace cho khớp với cấu t
             }
             finally
             {
-                // 3. TRẢ LẠI CHỖ TRỐNG (RẤT QUAN TRỌNG)
+                // 3. TRẢ LẠI CHỖ TRỐNG
                 // Dù file tải thành công hay bị lỗi văng vào catch, khối finally luôn chạy.
                 // Hàm Release() sẽ mở cổng để file thứ 4 đang chờ được phép chạy tiếp.
                 _semaphore.Release();
