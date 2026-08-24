@@ -36,6 +36,19 @@ static async Task HandleClientAsync(TcpClient client)
                     break;
                 }
 
+                string? rawError = PacketValidator.ValidateRaw(line);
+                if (rawError != null)
+                {
+                    ServerLogger.LogWarning($"[{clientIp}] Goi tin bi tu choi ({rawError})");
+                    await SendPacketAsync(stream, new ProtocolPacket
+                    {
+                        Command = PacketCommand.ERROR_RESP,
+                        ErrorCode = rawError,
+                        Message = "Goi tin khong hop le"
+                    });
+                    continue;
+                }
+
                 ProtocolPacket request;
                 try
                 {
@@ -49,6 +62,18 @@ static async Task HandleClientAsync(TcpClient client)
                         Command = PacketCommand.ERROR_RESP,
                         ErrorCode = "400_BAD_REQUEST",
                         Message = "Goi tin khong hop le."
+                    });
+                    continue;
+                }
+                string? reqError = PacketValidator.ValidateRequest(request);
+                if (reqError != null)
+                {
+                    ServerLogger.LogWarning($"[{clientIp}] Lenh khong hop le ({reqError})");
+                    await SendPacketAsync(stream, new ProtocolPacket
+                    {
+                        Command = PacketCommand.ERROR_RESP,
+                        ErrorCode = reqError,
+                        Message = "Lenh khong hop le"
                     });
                     continue;
                 }
