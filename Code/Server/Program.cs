@@ -2,6 +2,7 @@
 using System.Net.Sockets;
 using Shared;
 using Server;
+using System.Diagnostics;
 
 const int ServerPort = 8080;
 
@@ -9,6 +10,21 @@ TcpListener listener = new(IPAddress.Any, ServerPort);
 listener.Start();
 
 ServerLogger.LogServerStart(ServerPort);
+
+//RateLimiter downloadLimiter = new RateLimiter(5 * 1024 * 1024);
+if (args.Length > 0 && args[0] == "--speedtest")
+{
+    RateLimiter rl = new RateLimiter(5 * 1024 * 1024);
+    long totalBytes = 30L * 1024 * 1024;
+    Stopwatch sw = Stopwatch.StartNew();
+    const int chunk = 64 * 1024;
+    for (long sent = 0; sent < totalBytes; sent += chunk)
+        await rl.ThrottleAsync((int)Math.Min(chunk, totalBytes - sent));
+    sw.Stop();
+    double mbps = totalBytes / 1024.0 / 1024.0 / sw.Elapsed.TotalSeconds;
+    Console.WriteLine($"--- Speed test: {mbps:F2} MB/s (gioi han 5 MB/s) ---");
+    return;
+}
 
 while (true)
 {
@@ -152,15 +168,26 @@ static async Task SendSampleFileAsync(NetworkStream stream, string? fileName)
 
     ServerLogger.LogDownload(fileName, content.Length);
 
-    await SendPacketAsync(stream, new ProtocolPacket
+    await SendBytesAsync(stream, PacketHelper.Encode(new ProtocolPacket
     {
         Command = PacketCommand.FILE_CHUNK,
         FileName = fileName,
         DataBase64 = PacketHelper.EncodeTextData(content),
         IsLastChunk = true
-    });
+    }), ServerConfig.DownloadLimiter);
 }
 
+static async Task SendBytesAsync(NetworkStream stream, byte[] data, RateLimiter limiter)
+{
+    const int chunkSize = 64 * 1024;
+    for (int offset = 0; offset < data.Length; offset += chunkSize)
+    {
+        int len = Math.Min(chunkSize, data.Length - offset);
+        await limiter.ThrottleAsync(len);
+        await stream.WriteAsync(data.AsMemory(offset, len));
+        await stream.FlushAsync();
+    }
+}
 static async Task SendPacketAsync(NetworkStream stream, ProtocolPacket packet)
 {
     byte[] data = PacketHelper.Encode(packet);
