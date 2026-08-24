@@ -1,13 +1,14 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using Shared;
+using Server;
 
 const int ServerPort = 8080;
 
 TcpListener listener = new(IPAddress.Any, ServerPort);
 listener.Start();
 
-Log("SERVER", $"Dang lang nghe tai cong {ServerPort}.");
+ServerLogger.LogServerStart(ServerPort);
 
 while (true)
 {
@@ -18,7 +19,7 @@ while (true)
 static async Task HandleClientAsync(TcpClient client)
 {
     string clientIp = client.Client.RemoteEndPoint?.ToString() ?? "unknown";
-    Log(clientIp, "Client ket noi.");
+    ServerLogger.ClientConnected(clientIp);
 
     try
     {
@@ -31,7 +32,7 @@ static async Task HandleClientAsync(TcpClient client)
                 string? line = await reader.ReadLineAsync();
                 if (line is null)
                 {
-                    Log(clientIp, "Client ngat ket noi.");
+                    //ServerLogger.ClientDisconnected(clientIp, "Client ngat ket noi.");
                     break;
                 }
 
@@ -42,7 +43,7 @@ static async Task HandleClientAsync(TcpClient client)
                 }
                 catch (Exception ex)
                 {
-                    Log(clientIp, $"Goi tin sai dinh dang: {ex.Message}");
+                    ServerLogger.LogWarning($"[{clientIp}] Goi tin sai dinh dang: {ex.Message}");
                     await SendPacketAsync(stream, new ProtocolPacket
                     {
                         Command = PacketCommand.ERROR_RESP,
@@ -52,26 +53,26 @@ static async Task HandleClientAsync(TcpClient client)
                     continue;
                 }
 
-                Log(clientIp, $"Nhan lenh {request.Command}.");
+                ServerLogger.LogInfo($"[{clientIp}] Nhan lenh {request.Command}");
                 await ProcessRequestAsync(stream, request, clientIp);
             }
         }
     }
     catch (IOException ex)
     {
-        Log(clientIp, $"Mat ket noi dot ngot: {ex.Message}");
+        ServerLogger.LogError($"[{clientIp}] Mat ket noi: {ex.Message}");
     }
     catch (SocketException ex)
     {
-        Log(clientIp, $"Loi socket: {ex.Message}");
+        ServerLogger.LogError($"[{clientIp}] Loi socket: {ex.Message}");
     }
     catch (Exception ex)
     {
-        Log(clientIp, $"Loi xu ly client: {ex.Message}");
+        ServerLogger.LogError($"[{clientIp}] Loi xu ly client: {ex.Message}");
     }
     finally
     {
-        Log(clientIp, "Da dong ket noi client.");
+        ServerLogger.ClientDisconnected(clientIp);
     }
 }
 
@@ -84,7 +85,7 @@ static async Task ProcessRequestAsync(NetworkStream stream, ProtocolPacket reque
             break;
 
         case PacketCommand.DOWNLOAD_REQ:
-            Log(clientIp, $"Yeu cau tai file: {request.FileName}");
+            ServerLogger.LogInfo($"[{clientIp}] Yeu cau tai file: {request.FileName}");
             await SendSampleFileAsync(stream, request.FileName);
             break;
 
@@ -124,6 +125,8 @@ static async Task SendSampleFileAsync(NetworkStream stream, string? fileName)
         return;
     }
 
+    ServerLogger.LogDownload(fileName, content.Length);
+
     await SendPacketAsync(stream, new ProtocolPacket
     {
         Command = PacketCommand.FILE_CHUNK,
@@ -138,11 +141,6 @@ static async Task SendPacketAsync(NetworkStream stream, ProtocolPacket packet)
     byte[] data = PacketHelper.Encode(packet);
     await stream.WriteAsync(data);
     await stream.FlushAsync();
-}
-
-static void Log(string source, string message)
-{
-    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {message}");
 }
 
 static Dictionary<string, string> GetSampleFiles() => new()
