@@ -1,5 +1,6 @@
 ﻿using System.Net.Sockets;
 using Shared;
+using System.Text;
 
 Console.Write("Nhap IP Server (vi du 127.0.0.1): ");
 string serverIp = ReadRequiredInput();
@@ -54,6 +55,22 @@ try
         string fileContent = PacketHelper.DecodeTextData(downloadResponse.DataBase64);
         Console.WriteLine($"\nNoi dung FILE_CHUNK cua {downloadResponse.FileName}:");
         Console.WriteLine(fileContent);
+
+        byte[] receivedBytes = Encoding.UTF8.GetBytes(fileContent);
+        if (FileIntegrityVerifier.Verify(receivedBytes, downloadResponse.FileHash, out string computed))
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"Hash OK: {computed}");
+            Console.ResetColor();
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("FILE HONG! Hash khong khop");
+            Console.WriteLine($"Nhan duoc: {computed}");
+            Console.WriteLine($"Server gui: {downloadResponse.FileHash}");
+            Console.ResetColor();
+        }
     }
 
     Console.WriteLine("\nNhan Enter de thoat Client.");
