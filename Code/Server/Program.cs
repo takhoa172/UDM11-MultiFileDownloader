@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using Shared;
 using Server;
 using System.Diagnostics;
+using System.Text;
 
 const int ServerPort = 8080;
 
@@ -167,16 +168,21 @@ static async Task SendSampleFileAsync(NetworkStream stream, string? fileName)
     }
 
     ServerLogger.LogDownload(fileName, content.Length);
+    byte[] contentBytes = Encoding.UTF8.GetBytes(content);
+    string fileHash = HashHelper.CalculateSha256(contentBytes);
 
+    if (Environment.GetEnvironmentVariable("DEMO_CORRUPT_HASH") == "1")
+        fileHash = (fileHash[0] == '0' ? "1" : "0") + fileHash.Substring(1);
     await SendBytesAsync(stream, PacketHelper.Encode(new ProtocolPacket
     {
         Command = PacketCommand.FILE_CHUNK,
         FileName = fileName,
         DataBase64 = PacketHelper.EncodeTextData(content),
+        FileHash = fileHash,
         IsLastChunk = true
     }), ServerConfig.DownloadLimiter);
-}
-
+} 
+ 
 static async Task SendBytesAsync(NetworkStream stream, byte[] data, RateLimiter limiter)
 {
     const int chunkSize = 64 * 1024;

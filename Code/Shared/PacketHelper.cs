@@ -20,6 +20,7 @@ public sealed class ProtocolPacket
     public string? Message { get; set; }
     public string? DataBase64 { get; set; }
     public bool IsLastChunk { get; set; } = true;
+    public string? FileHash { get; set; }
 }
 
 public static class PacketHelper
