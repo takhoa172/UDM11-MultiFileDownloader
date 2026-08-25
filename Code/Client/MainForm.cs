@@ -1,30 +1,71 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
-using System.Net; // Cần thiết để dùng IPAddress
+using System.IO;
+using System.Net;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using Shared;
 
 namespace Client
 {
     public partial class MainForm : Form
     {
-        // Biến lưu trạng thái kết nối
         private bool _isConnected = false;
+        private readonly NetworkService _networkService = new NetworkService();
 
-        // Delegate sự kiện linh hoạt để ghép với thành viên khác sau này
-        public event Action<string, int>? OnConnectRequested;
-        public event Action? OnDisconnectRequested;
+        private readonly BindingList<FileItem> _serverFiles = new BindingList<FileItem>();
+        private readonly BindingList<FileItem> _downloadFiles = new BindingList<FileItem>();
 
-        public MainForm()
+        private readonly string _serverIp;
+        private readonly int _serverPort;
+
+        public MainForm(string ip, int port)
         {
             InitializeComponent();
 
-            // Khởi tạo trạng thái giao diện mặc định
-            SetConnectionState(false);
+            _serverIp = string.IsNullOrWhiteSpace(ip) ? "127.0.0.1" : ip;
+            _serverPort = port > 0 ? port : 8080;
+
+            SetupGridViews();
+
+            if (Controls.Find("lblServerIp", true).Length > 0)
+            {
+                lblIP.Text = $"IP Server: {_serverIp}";
+            }
+
+            if (Controls.Find("lblServerPort", true).Length > 0)
+            {
+                lblPort.Text = $"Port: {_serverPort}";
+            }
+
+            _ = ConnectToServerAsync();
         }
 
-        /// <summary>
-        /// Hàm dùng chung để cập nhật toàn bộ trạng thái kết nối trên UI
-        /// </summary>
+        private void SetupGridViews()
+        {
+            dgvServer.DataSource = _serverFiles;
+            dgvDownload.DataSource = _downloadFiles;
+
+            if (dgvServer.Columns["FileName"] != null)
+                dgvServer.Columns["FileName"].HeaderText = "Tên File";
+            if (dgvServer.Columns["FormattedSize"] != null)
+                dgvServer.Columns["FormattedSize"].HeaderText = "Kích Thước";
+
+            if (dgvDownload.Columns["FileName"] != null)
+                dgvDownload.Columns["FileName"].HeaderText = "Tên File";
+            if (dgvDownload.Columns["FormattedSize"] != null)
+                dgvDownload.Columns["FormattedSize"].HeaderText = "Kích Thước";
+
+            if (dgvServer.Columns.Contains("FileSizeBytes"))
+                dgvServer.Columns["FileSizeBytes"].Visible = false;
+            if (dgvDownload.Columns.Contains("FileSizeBytes"))
+                dgvDownload.Columns["FileSizeBytes"].Visible = false;
+
+            dgvDownload.AllowDrop = true;
+        }
+
         public void SetConnectionState(bool isConnected, string customStatus = "")
         {
             _isConnected = isConnected;
@@ -33,92 +74,94 @@ namespace Client
             {
                 lblStatus.Text = string.IsNullOrEmpty(customStatus) ? "● Đã kết nối" : customStatus;
                 lblStatus.ForeColor = Color.ForestGreen;
-
-                btnConnect.Text = "Ngắt kết nối";
-
-                // Khóa ô nhập liệu khi đã kết nối
-                txtServerIp.Enabled = false;
-                txtServerPort.Enabled = false;
             }
             else
             {
                 lblStatus.Text = string.IsNullOrEmpty(customStatus) ? "● Chưa kết nối" : customStatus;
                 lblStatus.ForeColor = Color.Red;
 
-                btnConnect.Text = "Kết nối";
-
-                // Mở lại ô nhập liệu khi chưa kết nối
-                txtServerIp.Enabled = true;
-                txtServerPort.Enabled = true;
+                _serverFiles.Clear();
+                _downloadFiles.Clear();
             }
         }
 
-        /// <summary>
-        /// Xử lý sự kiện khi bấm nút Kết nối / Ngắt kết nối
-        /// </summary>
-        private async void btnConnect_Click(object sender, EventArgs e)
+        private async Task ConnectToServerAsync()
         {
-            // 1. Nếu đang ĐÃ KẾT NỐI -> Bấm vào để Ngắt kết nối
-            if (_isConnected)
+            try
             {
-                if (OnDisconnectRequested != null)
-                {
-                    OnDisconnectRequested.Invoke();
-                }
-                else
-                {
-                    SetConnectionState(false); // Chạy độc lập test UI
-                }
-                return;
+                lblStatus.Text = "● Đang kết nối...";
+                lblStatus.ForeColor = Color.Orange;
+
+                await _networkService.ConnectAsync(_serverIp, _serverPort);
+
+                SetConnectionState(true);
+
+                await FetchServerFileListAsync();
             }
-
-            // 2. Validate dữ liệu đầu vào
-            string ip = txtServerIp.Text.Trim();
-            string portText = txtServerPort.Text.Trim();
-
-            // 2.1 Kiểm tra để trống
-            if (string.IsNullOrEmpty(ip) || string.IsNullOrEmpty(portText))
+            catch (Exception ex)
             {
-                MessageBox.Show("Vui lòng nhập đầy đủ IP Server và Port!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                SetConnectionState(false, "● Kết nối thất bại");
+                MessageBox.Show($"Lỗi kết nối Server ({_serverIp}:{_serverPort}): {ex.Message}", "Lỗi Kết Nối", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-
-            // 2.2 Kiểm tra định dạng IP hợp lệ (Cho phép cả "localhost" hoặc định dạng IP hợp lệ)
-            if (ip.ToLower() != "localhost" && !IPAddress.TryParse(ip, out _))
-            {
-                MessageBox.Show("Địa chỉ IP Server không hợp lệ! (Ví dụ đúng: 127.0.0.1 hoặc 192.168.1.10)", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // 2.3 Kiểm tra Port hợp lệ (1 - 65535)
-            if (!int.TryParse(portText, out int port) || port <= 0 || port > 65535)
-            {
-                MessageBox.Show("Port phải là số nguyên hợp lệ (1 - 65535)!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            // 3. Thực hiện chuyển trạng thái
-            //if (OnConnectRequested != null)
-            //{
-            //    lblStatus.Text = "🟡 Đang kết nối...";
-            //    lblStatus.ForeColor = Color.Orange;
-            //    OnConnectRequested.Invoke(ip, port);
-            //}
-            //else
-            //{
-            //    // Chạy độc lập test UI cho Task 12
-            //    SetConnectionState(true);
-            //}
-            lblStatus.Text = "🟡 Đang kết nối...";
-            lblStatus.ForeColor = Color.Orange;
-            btnConnect.Enabled = false; // Khóa nút tạm thời để tránh spam click
-
-            // ⏳ 2. Giả lập chờ Server phản hồi trong 1.5 giây (Không gây treo UI)
-            await Task.Delay(1500);
-
-            // 🟢 3. Chuyển sang ĐÃ KẾT NỐI
-            btnConnect.Enabled = true;
-            SetConnectionState(true);
         }
+
+        private async Task FetchServerFileListAsync()
+        {
+            try
+            {
+                await _networkService.SendPacketAsync(new ProtocolPacket
+                {
+                    Command = PacketCommand.GET_LIST
+                });
+
+                ProtocolPacket response = await _networkService.ReadPacketAsync();
+
+                if (response.Command == PacketCommand.ERROR_RESP)
+                {
+                    MessageBox.Show($"ERROR: {response.ErrorCode} - {response.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                string rawData = PacketHelper.DecodeTextData(response.DataBase64);
+
+                _serverFiles.Clear();
+                if (string.IsNullOrWhiteSpace(rawData)) return;
+
+                string[] lines = rawData.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string line in lines)
+                {
+                    string fileName = line;
+                    long fileSize = 0;
+
+                    if (line.Contains("|"))
+                    {
+                        string[] parts = line.Split('|');
+                        fileName = parts[0];
+                        long.TryParse(parts[1], out fileSize);
+                    }
+
+                    _serverFiles.Add(new FileItem
+                    {
+                        FileName = fileName.Trim(),
+                        FileSizeBytes = fileSize
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"ERROR: {ex.Message}", "Lỗi Dữ Liệu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            _networkService?.Dispose();
+            base.OnFormClosing(e);
+        }
+
+        private void listView1_SelectedIndexChanged(object sender, EventArgs e) { }
+        private void lblStatus_Click(object sender, EventArgs e) { }
+        private void label1_Click(object sender, EventArgs e) { }
+        private void label2_Click(object sender, EventArgs e) { }
     }
 }
