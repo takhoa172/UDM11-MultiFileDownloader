@@ -7,18 +7,22 @@ namespace Server;
 public static class FileStreamer
 {
     private const int BufferSize = 64 * 1024;
+    private const int ReadTimeoutMs = 30000;
+    private const int WriteTimeoutMs = 30000;
 
     public static async Task StreamFileAsync(
         NetworkStream stream,
         string filePath,
-        string fileName)
+        string fileName,
+        CancellationToken cancellationToken)
     {
         if (!File.Exists(filePath))
         {
             await SendErrorAsync(
                 stream,
                 "404_NOT_FOUND",
-                "Khong tim thay file yeu cau.");
+                "Khong tim thay file yeu cau.",
+                cancellationToken);
 
             return;
         }
@@ -40,17 +44,29 @@ public static class FileStreamer
             int bytesRead;
             bool hasSentChunk = false;
 
-            while ((bytesRead = await fileStream.ReadAsync(buffer.AsMemory(0, buffer.Length))) > 0)
+            while (true)
             {
+                using CancellationTokenSource readCts =
+                    CancellationTokenSource.CreateLinkedTokenSource(
+                        cancellationToken);
+
+                readCts.CancelAfter(ReadTimeoutMs);
+
+                bytesRead = await fileStream.ReadAsync(
+                    buffer.AsMemory(0, buffer.Length),
+                    readCts.Token);
+
+                if (bytesRead == 0)
+                    break;
+
                 hasSentChunk = true;
 
                 byte[] chunk = buffer[..bytesRead];
 
-                byte[] hashInput = chunk;
                 sha256.TransformBlock(
-                    hashInput,
+                    chunk,
                     0,
-                    hashInput.Length,
+                    chunk.Length,
                     null,
                     0);
 
@@ -71,13 +87,20 @@ public static class FileStreamer
                         FileHash = isLastChunk
                             ? GetFinalHash(sha256)
                             : null
-                    });
+                    },
+                    cancellationToken);
+
+                if (isLastChunk)
+                    break;
             }
 
-            // Trường hợp file rỗng.
+            // File rỗng
             if (!hasSentChunk)
             {
-                sha256.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                sha256.TransformFinalBlock(
+                    Array.Empty<byte>(),
+                    0,
+                    0);
 
                 await SendPacketAsync(
                     stream,
@@ -89,33 +112,39 @@ public static class FileStreamer
                         IsLastChunk = true,
                         FileHash = Convert.ToHexString(
                             sha256.Hash!).ToLowerInvariant()
-                    });
+                    },
+                    cancellationToken);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Client ngắt kết nối hoặc thao tác I/O bị timeout.
+            return;
         }
         catch (FileNotFoundException)
         {
-            await SendErrorAsync(
+            await TrySendErrorAsync(
                 stream,
                 "404_NOT_FOUND",
                 "File khong con ton tai tren Server.");
         }
         catch (DirectoryNotFoundException)
         {
-            await SendErrorAsync(
+            await TrySendErrorAsync(
                 stream,
                 "404_NOT_FOUND",
                 "Thu muc chua file khong con ton tai.");
         }
         catch (UnauthorizedAccessException)
         {
-            await SendErrorAsync(
+            await TrySendErrorAsync(
                 stream,
                 "403_FORBIDDEN",
                 "Server khong co quyen doc file.");
         }
         catch (IOException ex)
         {
-            await SendErrorAsync(
+            await TrySendErrorAsync(
                 stream,
                 "500_FILE_READ_ERROR",
                 $"Khong the doc file: {ex.Message}");
@@ -124,7 +153,10 @@ public static class FileStreamer
 
     private static string GetFinalHash(SHA256 sha256)
     {
-        sha256.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+        sha256.TransformFinalBlock(
+            Array.Empty<byte>(),
+            0,
+            0);
 
         return Convert.ToHexString(
             sha256.Hash!).ToLowerInvariant();
@@ -132,18 +164,30 @@ public static class FileStreamer
 
     private static async Task SendPacketAsync(
         NetworkStream stream,
-        ProtocolPacket packet)
+        ProtocolPacket packet,
+        CancellationToken cancellationToken)
     {
         byte[] data = PacketHelper.Encode(packet);
 
-        await stream.WriteAsync(data);
-        await stream.FlushAsync();
+        using CancellationTokenSource writeCts =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+
+        writeCts.CancelAfter(WriteTimeoutMs);
+
+        await stream.WriteAsync(
+            data.AsMemory(),
+            writeCts.Token);
+
+        await stream.FlushAsync(
+            writeCts.Token);
     }
 
     private static async Task SendErrorAsync(
         NetworkStream stream,
         string errorCode,
-        string message)
+        string message,
+        CancellationToken cancellationToken)
     {
         await SendPacketAsync(
             stream,
@@ -152,6 +196,30 @@ public static class FileStreamer
                 Command = PacketCommand.ERROR_RESP,
                 ErrorCode = errorCode,
                 Message = message
-            });
+            },
+            cancellationToken);
+    }
+
+    private static async Task TrySendErrorAsync(
+        NetworkStream stream,
+        string errorCode,
+        string message)
+    {
+        try
+        {
+            using CancellationTokenSource errorCts =
+                new(TimeSpan.FromMilliseconds(WriteTimeoutMs));
+
+            await SendErrorAsync(
+                stream,
+                errorCode,
+                message,
+                errorCts.Token);
+        }
+        catch
+        {
+            // Client có thể đã ngắt kết nối.
+            // Không để lỗi gửi ERROR_RESP làm Server crash.
+        }
     }
 }
