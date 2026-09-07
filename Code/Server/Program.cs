@@ -126,9 +126,35 @@ static async Task ProcessRequestAsync(NetworkStream stream, ProtocolPacket reque
             await SendFileListAsync(stream);
             break;
 
+        // case PacketCommand.DOWNLOAD_REQ:
+        //     ServerLogger.LogInfo($"[{clientIp}] Yeu cau tai file: {request.FileName}");
+        //     await SendSampleFileAsync(stream, request.FileName);
+        //     break;
+
         case PacketCommand.DOWNLOAD_REQ:
             ServerLogger.LogInfo($"[{clientIp}] Yeu cau tai file: {request.FileName}");
-            await SendSampleFileAsync(stream, request.FileName);
+
+            if (string.IsNullOrWhiteSpace(request.FileName))
+            {
+                await SendPacketAsync(stream, new ProtocolPacket
+                {
+                    Command = PacketCommand.ERROR_RESP,
+                    ErrorCode = "400_BAD_REQUEST",
+                    Message = "Ten file khong hop le."
+                });
+
+                break;
+            }
+
+            string filePath = Path.Combine(
+                ServerConfig.StoragePath,
+                Path.GetFileName(request.FileName));
+
+            await FileStreamer.StreamFileAsync(
+                stream,
+                filePath,
+                Path.GetFileName(request.FileName));
+
             break;
 
         default:
@@ -161,46 +187,46 @@ static async Task SendFileListAsync(NetworkStream stream)
     });
 }
 
-static async Task SendSampleFileAsync(NetworkStream stream, string? fileName)
-{
-    if (string.IsNullOrWhiteSpace(fileName) || !GetSampleFiles().TryGetValue(fileName, out string? content))
-    {
-        await SendPacketAsync(stream, new ProtocolPacket
-        {
-            Command = PacketCommand.ERROR_RESP,
-            ErrorCode = "404_NOT_FOUND",
-            Message = "Khong tim thay file yeu cau."
-        });
-        return;
-    }
+// static async Task SendSampleFileAsync(NetworkStream stream, string? fileName)
+// {
+//     if (string.IsNullOrWhiteSpace(fileName) || !GetSampleFiles().TryGetValue(fileName, out string? content))
+//     {
+//         await SendPacketAsync(stream, new ProtocolPacket
+//         {
+//             Command = PacketCommand.ERROR_RESP,
+//             ErrorCode = "404_NOT_FOUND",
+//             Message = "Khong tim thay file yeu cau."
+//         });
+//         return;
+//     }
 
-    ServerLogger.LogDownload(fileName, content.Length);
-    byte[] contentBytes = Encoding.UTF8.GetBytes(content);
-    string fileHash = HashHelper.CalculateSha256(contentBytes);
+//     ServerLogger.LogDownload(fileName, content.Length);
+//     byte[] contentBytes = Encoding.UTF8.GetBytes(content);
+//     string fileHash = HashHelper.CalculateSha256(contentBytes);
 
-    if (Environment.GetEnvironmentVariable("DEMO_CORRUPT_HASH") == "1")
-        fileHash = (fileHash[0] == '0' ? "1" : "0") + fileHash.Substring(1);
-    await SendBytesAsync(stream, PacketHelper.Encode(new ProtocolPacket
-    {
-        Command = PacketCommand.FILE_CHUNK,
-        FileName = fileName,
-        DataBase64 = PacketHelper.EncodeTextData(content),
-        FileHash = fileHash,
-        IsLastChunk = true
-    }), ServerConfig.DownloadLimiter);
-} 
+//     if (Environment.GetEnvironmentVariable("DEMO_CORRUPT_HASH") == "1")
+//         fileHash = (fileHash[0] == '0' ? "1" : "0") + fileHash.Substring(1);
+//     await SendBytesAsync(stream, PacketHelper.Encode(new ProtocolPacket
+//     {
+//         Command = PacketCommand.FILE_CHUNK,
+//         FileName = fileName,
+//         DataBase64 = PacketHelper.EncodeTextData(content),
+//         FileHash = fileHash,
+//         IsLastChunk = true
+//     }), ServerConfig.DownloadLimiter);
+// } 
  
-static async Task SendBytesAsync(NetworkStream stream, byte[] data, RateLimiter limiter)
-{
-    const int chunkSize = 64 * 1024;
-    for (int offset = 0; offset < data.Length; offset += chunkSize)
-    {
-        int len = Math.Min(chunkSize, data.Length - offset);
-        await limiter.ThrottleAsync(len);
-        await stream.WriteAsync(data.AsMemory(offset, len));
-        await stream.FlushAsync();
-    }
-}
+// static async Task SendBytesAsync(NetworkStream stream, byte[] data, RateLimiter limiter)
+// {
+//     const int chunkSize = 64 * 1024;
+//     for (int offset = 0; offset < data.Length; offset += chunkSize)
+//     {
+//         int len = Math.Min(chunkSize, data.Length - offset);
+//         await limiter.ThrottleAsync(len);
+//         await stream.WriteAsync(data.AsMemory(offset, len));
+//         await stream.FlushAsync();
+//     }
+// }
 static async Task SendPacketAsync(NetworkStream stream, ProtocolPacket packet)
 {
     byte[] data = PacketHelper.Encode(packet);
@@ -208,10 +234,10 @@ static async Task SendPacketAsync(NetworkStream stream, ProtocolPacket packet)
     await stream.FlushAsync();
 }
 
-static Dictionary<string, string> GetSampleFiles() => new()
-{
-    ["tailieu_mang.txt"] = "Noi dung mau cua file tai lieu mang.",
-    ["bao_cao_tien_do.txt"] = "Ban demo Core TCP Socket va Protocol.",
-    ["huong_dan_test.txt"] = "Chay Server truoc, sau do chay Client de ket noi."
-};
+// static Dictionary<string, string> GetSampleFiles() => new()
+// {
+//     ["tailieu_mang.txt"] = "Noi dung mau cua file tai lieu mang.",
+//     ["bao_cao_tien_do.txt"] = "Ban demo Core TCP Socket va Protocol.",
+//     ["huong_dan_test.txt"] = "Chay Server truoc, sau do chay Client de ket noi."
+// };
 
