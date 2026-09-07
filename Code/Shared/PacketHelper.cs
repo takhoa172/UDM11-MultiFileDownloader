@@ -15,12 +15,25 @@ public enum PacketCommand
 public sealed class ProtocolPacket
 {
     public PacketCommand Command { get; set; }
+
     public string? FileName { get; set; }
+
     public string? ErrorCode { get; set; }
+
     public string? Message { get; set; }
+
     public string? DataBase64 { get; set; }
+
     public bool IsLastChunk { get; set; } = true;
+
     public string? FileHash { get; set; }
+
+    // Authentication
+    public string? Username { get; set; }
+
+    public string? PasswordHash { get; set; }
+
+    public string? Token { get; set; }
 }
 
 public static class PacketHelper
