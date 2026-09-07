@@ -144,7 +144,14 @@ static async Task ProcessRequestAsync(NetworkStream stream, ProtocolPacket reque
 
 static async Task SendFileListAsync(NetworkStream stream)
 {
-    string fileList = string.Join('\n', GetSampleFiles().Keys);
+    List<ServerFileInfo> files =
+        FileScanner.Scan(ServerConfig.StoragePath);
+
+    string fileList = string.Join(
+        '\n',
+        files.Select(file =>
+            $"{file.FileName}|{file.FileSize}|{file.FileHash}"));
+
     await SendPacketAsync(stream, new ProtocolPacket
     {
         Command = PacketCommand.FILE_CHUNK,

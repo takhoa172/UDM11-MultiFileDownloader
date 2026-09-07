@@ -3,7 +3,10 @@ namespace Client
     public class FileItem
     {
         public string FileName { get; set; } = string.Empty;
+
         public long FileSizeBytes { get; set; }
+
+        public string FileHash { get; set; } = string.Empty;
 
         public string FormattedSize => FormatSize(FileSizeBytes);
 

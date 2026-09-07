@@ -50,16 +50,22 @@ namespace Client
 
             if (dgvServer.Columns["FileName"] != null)
                 dgvServer.Columns["FileName"].HeaderText = "Tên File";
+
             if (dgvServer.Columns["FormattedSize"] != null)
                 dgvServer.Columns["FormattedSize"].HeaderText = "Kích Thước";
 
+            if (dgvServer.Columns["FileHash"] != null)
+                dgvServer.Columns["FileHash"].HeaderText = "SHA-256";
+
             if (dgvDownload.Columns["FileName"] != null)
                 dgvDownload.Columns["FileName"].HeaderText = "Tên File";
+
             if (dgvDownload.Columns["FormattedSize"] != null)
                 dgvDownload.Columns["FormattedSize"].HeaderText = "Kích Thước";
 
             if (dgvServer.Columns.Contains("FileSizeBytes"))
                 dgvServer.Columns["FileSizeBytes"].Visible = false;
+
             if (dgvDownload.Columns.Contains("FileSizeBytes"))
                 dgvDownload.Columns["FileSizeBytes"].Visible = false;
 
@@ -130,20 +136,23 @@ namespace Client
                 string[] lines = rawData.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (string line in lines)
                 {
-                    string fileName = line;
-                    long fileSize = 0;
+                    string[] parts = line.Split('|');
 
-                    if (line.Contains("|"))
-                    {
-                        string[] parts = line.Split('|');
-                        fileName = parts[0];
-                        long.TryParse(parts[1], out fileSize);
-                    }
+                    if (parts.Length < 3)
+                        continue;
+
+                    string fileName = parts[0].Trim();
+
+                    long fileSize = 0;
+                    long.TryParse(parts[1], out fileSize);
+
+                    string fileHash = parts[2].Trim();
 
                     _serverFiles.Add(new FileItem
                     {
-                        FileName = fileName.Trim(),
-                        FileSizeBytes = fileSize
+                        FileName = fileName,
+                        FileSizeBytes = fileSize,
+                        FileHash = fileHash
                     });
                 }
             }
