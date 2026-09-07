@@ -1,49 +1,98 @@
 ﻿using System;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Client.Logic // Lưu ý đổi tên namespace cho khớp với cấu trúc thư mục của team bạn
+namespace Client.Logic
 {
+    public class DownloadProgressModel
+    {
+        public string FileName { get; set; } = string.Empty;
+        public int Percentage { get; set; }
+        public string SpeedInfo { get; set; } = string.Empty;
+    }
+
     public class DownloadManager
     {
-        // Khai báo "bác bảo vệ" SemaphoreSlim để giới hạn số luồng (task)
         private readonly SemaphoreSlim _semaphore;
 
-        // Hàm khởi tạo (Constructor). Theo yêu cầu nhóm, giới hạn tối đa 3 file tải cùng lúc
         public DownloadManager(int maxConcurrentDownloads = 3)
         {
             _semaphore = new SemaphoreSlim(maxConcurrentDownloads);
         }
 
-        // Hàm xử lý tải một file
-        public async Task StartDownloadAsync(string fileName)
+        public async Task StartDownloadAsync(string fileName, long totalBytes, Stream networkStream, string saveDirectory, IProgress<DownloadProgressModel> progress)
         {
-            // 1. ĐỨNG CHỜ Ở CỔNG
-            // Nếu đã có đủ 3 file đang tải, file thứ 4 sẽ phải đứng đợi (Queued) ngay tại dòng này.
             await _semaphore.WaitAsync();
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
 
             try
             {
-                // 2. BẮT ĐẦU TẢI FILE
-                // Ngay khi qua được cổng, file sẽ bắt đầu tải.
-                // (Sau này bạn sẽ thay chỗ này bằng code gọi core TCP của Đức Duy và code lưu file)
-                Console.WriteLine($"[ĐANG TẢI] Bắt đầu tải file: {fileName}...");
+                if (!Directory.Exists(saveDirectory))
+                {
+                    Directory.CreateDirectory(saveDirectory);
+                }
 
-                // Giả lập thời gian tải file mất 3 giây để bạn dễ test nghiệm thu
-                await Task.Delay(3000);
+                // TASK 20: LOGIC XỬ LÝ FILE TRÙNG (TỰ ĐỘNG ĐỔI TÊN)
+                string filePath = Path.Combine(saveDirectory, fileName);
+                if (File.Exists(filePath))
+                {
+                    string fileExtension = Path.GetExtension(fileName); // VD: .pdf
+                    string fileNameWithoutExt = Path.GetFileNameWithoutExtension(fileName); // VD: tailieu
+                    int counter = 1;
 
-                Console.WriteLine($"[THÀNH CÔNG] Đã tải xong: {fileName}");
+                    // Lặp cho đến khi tìm được tên file chưa tồn tại (VD: tailieu(1).pdf)
+                    while (File.Exists(filePath))
+                    {
+                        string newFileName = $"{fileNameWithoutExt}({counter}){fileExtension}";
+                        filePath = Path.Combine(saveDirectory, newFileName);
+                        counter++;
+                    }
+                }
+
+                // TASK 19: Ghi file bằng FileStream
+                using (FileStream fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 8192, useAsync: true))
+                {
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    long downloadedBytes = 0;
+
+                    while ((bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer, 0, bytesRead);
+                        downloadedBytes += bytesRead;
+
+                        // TASK 18: Tính % và tốc độ
+                        int percentage = (int)((double)downloadedBytes / totalBytes * 100);
+                        double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                        double speedMBps = elapsedSeconds > 0 ? (downloadedBytes / elapsedSeconds) / (1024 * 1024) : 0;
+
+                        progress?.Report(new DownloadProgressModel
+                        {
+                            FileName = Path.GetFileName(filePath), // Lấy tên file thực tế (có thể đã đổi thành tailieu(1).pdf)
+                            Percentage = percentage,
+                            SpeedInfo = $"{Math.Round(speedMBps, 2)} MB/s"
+                        });
+
+                        if (downloadedBytes >= totalBytes)
+                        {
+                            break;
+                        }
+                    }
+                }
+                Console.WriteLine($"[THÀNH CÔNG] Đã lưu file tại: {filePath}");
             }
             catch (Exception ex)
             {
-                // Task 21: Cách ly ngoại lệ. Lỗi file này không ảnh hưởng file khác
+                // TASK 21: Cách ly ngoại lệ
                 Console.WriteLine($"[LỖI] Lỗi khi tải file {fileName}: {ex.Message}");
             }
             finally
             {
-                // 3. TRẢ LẠI CHỖ TRỐNG (RẤT QUAN TRỌNG)
-                // Dù file tải thành công hay bị lỗi văng vào catch, khối finally luôn chạy.
-                // Hàm Release() sẽ mở cổng để file thứ 4 đang chờ được phép chạy tiếp.
+                stopwatch.Stop();
                 _semaphore.Release();
             }
         }
