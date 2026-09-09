@@ -196,79 +196,106 @@ static async Task ProcessRequestAsync(
     ProtocolPacket request,
     string clientIp)
 {
-    switch (request.Command)
+    try
     {
-        case PacketCommand.GET_LIST:
-
-            await SendFileListAsync(stream);
-
-            break;
-
-        case PacketCommand.DOWNLOAD_REQ:
+        switch (request.Command)
         {
-            ServerLogger.LogInfo(
-                $"[{clientIp}] Yeu cau tai file: {request.FileName}");
+            case PacketCommand.GET_LIST:
+                await SendFileListAsync(stream);
+                break;
 
-            if (string.IsNullOrWhiteSpace(request.FileName))
+            case PacketCommand.DOWNLOAD_REQ:
             {
+                ServerLogger.LogInfo(
+                    $"[{clientIp}] Yeu cau tai file: {request.FileName}");
+
+                if (string.IsNullOrWhiteSpace(request.FileName))
+                {
+                    await SendPacketAsync(
+                        stream,
+                        new ProtocolPacket
+                        {
+                            Command = PacketCommand.ERROR_RESP,
+                            ErrorCode = "400_BAD_REQUEST",
+                            Message = "Ten file khong hop le."
+                        });
+
+                    break;
+                }
+
+                string safeFileName =
+                    Path.GetFileName(request.FileName);
+
+                if (string.IsNullOrWhiteSpace(safeFileName))
+                {
+                    await SendPacketAsync(
+                        stream,
+                        new ProtocolPacket
+                        {
+                            Command = PacketCommand.ERROR_RESP,
+                            ErrorCode = "400_BAD_REQUEST",
+                            Message = "Ten file khong hop le."
+                        });
+
+                    break;
+                }
+
+                string filePath =
+                    Path.Combine(
+                        ServerConfig.StoragePath,
+                        safeFileName);
+
+                using CancellationTokenSource downloadCts =
+                    new(TimeSpan.FromMinutes(30));
+
+                await FileStreamer.StreamFileAsync(
+                    stream,
+                    filePath,
+                    safeFileName,
+                    downloadCts.Token);
+
+                break;
+            }
+
+            default:
                 await SendPacketAsync(
                     stream,
                     new ProtocolPacket
                     {
                         Command = PacketCommand.ERROR_RESP,
-                        ErrorCode = "400_BAD_REQUEST",
-                        Message = "Ten file khong hop le."
+                        ErrorCode = "400_BAD_COMMAND",
+                        Message = "Lenh khong duoc Server ho tro."
                     });
 
                 break;
-            }
-
-            string safeFileName =
-                Path.GetFileName(request.FileName);
-
-            if (string.IsNullOrWhiteSpace(safeFileName))
-            {
-                await SendPacketAsync(
-                    stream,
-                    new ProtocolPacket
-                    {
-                        Command = PacketCommand.ERROR_RESP,
-                        ErrorCode = "400_BAD_REQUEST",
-                        Message = "Ten file khong hop le."
-                    });
-
-                break;
-            }
-
-            string filePath =
-                Path.Combine(
-                    ServerConfig.StoragePath,
-                    safeFileName);
-
-            using CancellationTokenSource downloadCts =
-                new(TimeSpan.FromMinutes(30));
-
-            await FileStreamer.StreamFileAsync(
-                stream,
-                filePath,
-                safeFileName,
-                downloadCts.Token);
-
-            break;
         }
+    }
+    catch (OperationCanceledException)
+    {
+        ServerLogger.LogWarning(
+            $"[{clientIp}] Request bi timeout hoac bi huy.");
+    }
+    catch (Exception ex)
+    {
+        ServerLogger.LogError(
+            $"[{clientIp}] Loi xu ly request: {ex.Message}");
 
-        default:
-
+        try
+        {
             await SendPacketAsync(
                 stream,
                 new ProtocolPacket
                 {
                     Command = PacketCommand.ERROR_RESP,
-                    ErrorCode = "400_BAD_COMMAND",
-                    Message = "Lenh khong duoc Server ho tro."
+                    ErrorCode = "500_REQUEST_ERROR",
+                    Message =
+                        "Loi xu ly request. Request nay da ket thuc, Server van tiep tuc hoat dong."
                 });
-
-            break;
+        }
+        catch
+        {
+            // Client co the da ngat ket noi.
+        }
     }
 }
 

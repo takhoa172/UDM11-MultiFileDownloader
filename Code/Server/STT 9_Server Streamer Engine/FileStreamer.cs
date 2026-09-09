@@ -118,36 +118,22 @@ public static class FileStreamer
         }
         catch (OperationCanceledException)
         {
-            // Client ngắt kết nối hoặc thao tác I/O bị timeout.
+            // Timeout hoặc download bị hủy.
+            // Không gửi thêm ERROR_RESP vì request đã bị hủy.
             return;
         }
-        catch (FileNotFoundException)
+        catch (Exception ex)
         {
+            FileErrorInfo error =
+                FileErrorHandler.FromException(
+                    ex,
+                    fileName,
+                    filePath);
+
             await TrySendErrorAsync(
                 stream,
-                "404_NOT_FOUND",
-                "File khong con ton tai tren Server.");
-        }
-        catch (DirectoryNotFoundException)
-        {
-            await TrySendErrorAsync(
-                stream,
-                "404_NOT_FOUND",
-                "Thu muc chua file khong con ton tai.");
-        }
-        catch (UnauthorizedAccessException)
-        {
-            await TrySendErrorAsync(
-                stream,
-                "403_FORBIDDEN",
-                "Server khong co quyen doc file.");
-        }
-        catch (IOException ex)
-        {
-            await TrySendErrorAsync(
-                stream,
-                "500_FILE_READ_ERROR",
-                $"Khong the doc file: {ex.Message}");
+                error.ErrorCode,
+                error.Message);
         }
     }
 
