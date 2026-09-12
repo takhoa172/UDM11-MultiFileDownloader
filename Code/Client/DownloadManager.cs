@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Client;
+using Shared;
 
 namespace Client.Logic
 {
@@ -12,6 +14,20 @@ namespace Client.Logic
         public string FileName { get; set; } = string.Empty;
         public int Percentage { get; set; }
         public string SpeedInfo { get; set; } = string.Empty;
+    }
+
+    public enum DownloadStatusResult
+    {
+        Completed,
+        Skipped,
+        Error
+    }
+
+    public class DownloadResult
+    {
+        public DownloadStatusResult Status { get; set; }
+        public string? SavedPath { get; set; }
+        public string? Message { get; set; }
     }
 
     public class DownloadManager
@@ -23,41 +39,33 @@ namespace Client.Logic
             _semaphore = new SemaphoreSlim(maxConcurrentDownloads);
         }
 
-        public async Task StartDownloadAsync(
+        public async Task<DownloadResult> StartDownloadAsync(
             string fileName,
             long totalBytes,
-            Stream networkStream,
+            string serverIp,
+            int serverPort,
             string saveDirectory,
-            IProgress<DownloadProgressModel> progress,
+            IProgress<DownloadProgressModel>? progress = null,
             FileConflictMode conflictMode = FileConflictMode.AutoRename)
         {
             await _semaphore.WaitAsync();
 
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            string? filePath = null;
+            string? expectedHash = null;
 
             try
             {
-                if (!Directory.Exists(saveDirectory))
-                {
-                    Directory.CreateDirectory(saveDirectory);
-                }
+                Directory.CreateDirectory(saveDirectory);
 
-                // STT 8:
-                // Xác định đường dẫn lưu file theo 3 chế độ:
+                // STT 8: xác định đường dẫn lưu theo 3 chế độ
                 // AutoRename / Overwrite / Skip.
-                string? filePath =
-                    FileConflictManager.ResolveTargetPath(
-                        saveDirectory,
-                        fileName,
-                        conflictMode);
+                filePath = FileConflictManager.ResolveTargetPath(
+                    saveDirectory, fileName, conflictMode);
 
-                // Skip: file đã tồn tại và người dùng chọn bỏ qua.
                 if (filePath == null)
                 {
-                    Console.WriteLine(
-                        $"[SKIP] Bỏ qua file: {fileName}");
-
                     progress?.Report(new DownloadProgressModel
                     {
                         FileName = fileName,
@@ -65,100 +73,163 @@ namespace Client.Logic
                         SpeedInfo = "Skipped"
                     });
 
-                    return;
+                    return new DownloadResult
+                    {
+                        Status = DownloadStatusResult.Skipped,
+                        Message = "File đã tồn tại (bỏ qua)."
+                    };
                 }
 
-                // FileMode.Create:
-                // - File chưa tồn tại → tạo file mới.
-                // - File đã tồn tại + Overwrite → ghi đè file cũ.
-                // - AutoRename → filePath đã là tên mới nên tạo file mới.
-                using (FileStream fileStream =
-                    new FileStream(
-                        filePath,
-                        FileMode.Create,
-                        FileAccess.Write,
-                        FileShare.None,
-                        bufferSize: 8192,
-                        useAsync: true))
+                using var client = new TcpClient();
+                await client.ConnectAsync(serverIp, serverPort);
+
+                using var stream = client.GetStream();
+                using var reader = new StreamReader(stream);
+                using var writer = new StreamWriter(stream) { AutoFlush = true };
+
+                await writer.WriteLineAsync(PacketHelper.EncodeToString(new ProtocolPacket
                 {
-                    byte[] buffer = new byte[8192];
+                    Command = PacketCommand.DOWNLOAD_REQ,
+                    FileName = fileName
+                }));
 
-                    int bytesRead;
-                    long downloadedBytes = 0;
+                long downloadedBytes = 0;
+                long lastReportMs = 0;
+                string? errorMessage = null;
 
-                    while ((bytesRead =
-                        await networkStream.ReadAsync(
-                            buffer,
-                            0,
-                            buffer.Length)) > 0)
+                // STT 19: ghi file theo luồng (FileStream) để tránh tràn RAM.
+                using (var fileStream = new FileStream(
+                    filePath,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 8192,
+                    useAsync: true))
+                {
+                    while (true)
                     {
-                        await fileStream.WriteAsync(
-                            buffer,
-                            0,
-                            bytesRead);
+                        string? line = await reader.ReadLineAsync();
+                        if (line == null)
+                            throw new IOException("Server đóng kết nối.");
 
-                        downloadedBytes += bytesRead;
+                        ProtocolPacket packet = PacketHelper.Decode(line);
 
-                        int percentage = totalBytes > 0
-                            ? (int)(
-                                (double)downloadedBytes /
-                                totalBytes * 100)
-                            : 100;
-
-                        // Không cho phần trăm vượt quá 100.
-                        if (percentage > 100)
-                            percentage = 100;
-
-                        double elapsedSeconds =
-                            stopwatch.Elapsed.TotalSeconds;
-
-                        double speedMBps =
-                            elapsedSeconds > 0
-                                ? (downloadedBytes / elapsedSeconds) /
-                                  (1024 * 1024)
-                                : 0;
-
-                        progress?.Report(
-                            new DownloadProgressModel
-                            {
-                                FileName =
-                                    Path.GetFileName(filePath),
-
-                                Percentage = percentage,
-
-                                SpeedInfo =
-                                    $"{Math.Round(speedMBps, 2)} MB/s"
-                            });
-
-                        if (downloadedBytes >= totalBytes)
+                        if (packet.Command == PacketCommand.ERROR_RESP)
                         {
+                            // Ghi nhận lỗi rồi thoát vòng lặp để đóng FileStream
+                            // trước khi xóa file rỗng.
+                            errorMessage = packet.Message
+                                           ?? packet.ErrorCode
+                                           ?? "Lỗi không xác định.";
                             break;
                         }
+
+                        if (packet.Command != PacketCommand.FILE_CHUNK)
+                            continue;
+
+                        // STT 23: lấy hash server gửi ở chunk cuối (kể cả file rỗng).
+                        if (packet.IsLastChunk && !string.IsNullOrEmpty(packet.FileHash))
+                            expectedHash = packet.FileHash;
+
+                        if (!string.IsNullOrEmpty(packet.DataBase64))
+                        {
+                            byte[] chunk = Convert.FromBase64String(packet.DataBase64);
+                            await fileStream.WriteAsync(chunk, 0, chunk.Length);
+
+                            downloadedBytes += chunk.Length;
+
+                            if (packet.TotalSize > 0)
+                                totalBytes = packet.TotalSize;
+
+                            // STT 18: tính % và tốc độ.
+                            long now = stopwatch.ElapsedMilliseconds;
+                            if (now - lastReportMs >= 200 || packet.IsLastChunk)
+                            {
+                                lastReportMs = now;
+
+                                int percentage = totalBytes > 0
+                                    ? (int)((double)downloadedBytes / totalBytes * 100)
+                                    : 0;
+
+                                if (percentage > 100)
+                                    percentage = 100;
+
+                                double elapsed = stopwatch.Elapsed.TotalSeconds;
+                                double speedMBps = elapsed > 0
+                                    ? (downloadedBytes / elapsed) / (1024 * 1024)
+                                    : 0;
+
+                                progress?.Report(new DownloadProgressModel
+                                {
+                                    FileName = Path.GetFileName(filePath),
+                                    Percentage = percentage,
+                                    SpeedInfo = $"{speedMBps:F2} MB/s"
+                                });
+                            }
+                        }
+
+                        if (packet.IsLastChunk)
+                            break;
                     }
                 }
 
-                Console.WriteLine(
-                    $"[THÀNH CÔNG] Đã lưu file tại: {filePath}");
+                // Server báo lỗi: xóa file rỗng/dở rồi trả lỗi.
+                if (errorMessage != null)
+                {
+                    TryDeleteFile(filePath);
+                    return new DownloadResult
+                    {
+                        Status = DownloadStatusResult.Error,
+                        Message = errorMessage
+                    };
+                }
+
+                // STT 23: xác thực SHA-256; sai thì tự xóa file + báo hỏng.
+                bool hashOk = await FileIntegrityVerifier
+                    .VerifyFileAndDeleteIfCorruptAsync(filePath, expectedHash);
+
+                if (!hashOk)
+                {
+                    return new DownloadResult
+                    {
+                        Status = DownloadStatusResult.Error,
+                        Message = "File hỏng: hash không khớp."
+                    };
+                }
+
+                return new DownloadResult
+                {
+                    Status = DownloadStatusResult.Completed,
+                    SavedPath = filePath
+                };
             }
-            catch (IOException ex)
-            {
-                Console.WriteLine(
-                    $"[LỖI FILE] Lỗi khi tải file {fileName}: {ex.Message}");
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                Console.WriteLine(
-                    $"[LỖI QUYỀN] Không có quyền ghi file {fileName}: {ex.Message}");
-            }
+            // STT 21: cách ly ngoại lệ — lỗi file này không ảnh hưởng file khác.
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[LỖI] Lỗi khi tải file {fileName}: {ex.Message}");
+                TryDeleteFile(filePath);
+                return new DownloadResult
+                {
+                    Status = DownloadStatusResult.Error,
+                    Message = ex.Message
+                };
             }
             finally
             {
                 stopwatch.Stop();
                 _semaphore.Release();
+            }
+        }
+
+        private static void TryDeleteFile(string? path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+                // Bỏ qua: không để lỗi xóa file làm hỏng luồng.
             }
         }
     }

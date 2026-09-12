@@ -1,6 +1,6 @@
 using System;
+using System.IO;
 using System.Windows.Forms;
-using Client;
 
 namespace Client
 {
@@ -9,43 +9,39 @@ namespace Client
         [STAThread]
         static void Main()
         {
-            ApplicationConfiguration.Initialize();
-
-            Console.Write("Nhap IP Server (vi du 127.0.0.1): ");
-            string serverIp = ReadRequiredInput();
-
-            Console.Write("Nhap Port Server (vi du 8080): ");
-            int serverPort = ReadPort();
-
-            Application.Run(new MainForm(serverIp, serverPort));
-        }
-
-        static string ReadRequiredInput()
-        {
-            while (true)
+            try
             {
-                string? input = Console.ReadLine();
-                if (!string.IsNullOrWhiteSpace(input))
-                {
-                    return input.Trim();
-                }
-
-                Console.Write("Gia tri khong duoc rong, nhap lai: ");
+                ApplicationConfiguration.Initialize();
+                Application.Run(new MainForm());
+            }
+            catch (Exception ex)
+            {
+                try { File.WriteAllText("startup-error.log", ex.ToString()); } catch { }
+                MessageBox.Show(ex.ToString(), "Lỗi khởi động");
             }
         }
 
-        static int ReadPort()
+        // Kiểm tra địa chỉ IPv4 hợp lệ (4 nhóm, mỗi nhóm 0–255)
+        public static bool IsValidIPv4Strict(string ip)
         {
-            while (true)
-            {
-                string input = ReadRequiredInput();
-                if (int.TryParse(input, out int port) && port is > 0 and <= 65535)
-                {
-                    return port;
-                }
+            if (string.IsNullOrWhiteSpace(ip))
+                return false;
 
-                Console.Write("Port khong hop le, nhap lai: ");
+            string[] parts = ip.Trim().Split('.');
+            if (parts.Length != 4)
+                return false;
+
+            foreach (string part in parts)
+            {
+                if (part.Length == 0 || part.Length > 3)
+                    return false;
+                if (!int.TryParse(part, out int value))
+                    return false;
+                if (value < 0 || value > 255)
+                    return false;
             }
+
+            return true;
         }
     }
 }

@@ -9,7 +9,8 @@ namespace Client
 {
     public class NetworkService : IDisposable
     {
-        private const int ConnectTimeoutMs = 30000;
+        //private const int ConnectTimeoutMs = 30000;
+        private const int ConnectTimeoutMs = 5000;
         private const int ReadTimeoutMs = 30000;
         private const int WriteTimeoutMs = 30000;
 
@@ -19,6 +20,8 @@ namespace Client
 
         public bool IsConnected =>
             _client != null && _client.Connected;
+
+        public Socket? ClientSocket => _client?.Client;
 
         public async Task ConnectAsync(string ip, int port)
         {
@@ -33,7 +36,6 @@ namespace Client
                 connectCts.Token);
 
             _stream = _client.GetStream();
-
             _reader = new StreamReader(_stream);
         }
 
@@ -42,46 +44,35 @@ namespace Client
             CancellationToken cancellationToken = default)
         {
             if (_stream == null)
-                throw new InvalidOperationException(
-                    "Chưa kết nối Server.");
+                throw new InvalidOperationException("Chưa kết nối Server.");
 
             byte[] data = PacketHelper.Encode(packet);
 
             using CancellationTokenSource writeCts =
-                CancellationTokenSource.CreateLinkedTokenSource(
-                    cancellationToken);
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             writeCts.CancelAfter(WriteTimeoutMs);
 
-            await _stream.WriteAsync(
-                data.AsMemory(),
-                writeCts.Token);
-
-            await _stream.FlushAsync(
-                writeCts.Token);
+            await _stream.WriteAsync(data.AsMemory(), writeCts.Token);
+            await _stream.FlushAsync(writeCts.Token);
         }
 
         public async Task<ProtocolPacket> ReadPacketAsync(
             CancellationToken cancellationToken = default)
         {
             if (_reader == null)
-                throw new InvalidOperationException(
-                    "Chưa kết nối Server.");
+                throw new InvalidOperationException("Chưa kết nối Server.");
 
             using CancellationTokenSource readCts =
-                CancellationTokenSource.CreateLinkedTokenSource(
-                    cancellationToken);
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             readCts.CancelAfter(ReadTimeoutMs);
 
-            string? line =
-                await _reader.ReadLineAsync(
-                    readCts.Token);
+            string? line = await _reader.ReadLineAsync(readCts.Token);
 
             if (line == null)
             {
-                throw new IOException(
-                    "Server đã đóng kết nối.");
+                throw new IOException("Server đã đóng kết nối.");
             }
 
             return PacketHelper.Decode(line);
@@ -89,33 +80,14 @@ namespace Client
 
         public void Dispose()
         {
-            try
-            {
-                _reader?.Dispose();
-            }
-            finally
-            {
-                _reader = null;
+            _reader?.Dispose();
+            _stream?.Dispose();
+            _client?.Close();
+            _client?.Dispose();
 
-                try
-                {
-                    _stream?.Dispose();
-                }
-                finally
-                {
-                    _stream = null;
-
-                    try
-                    {
-                        _client?.Close();
-                    }
-                    finally
-                    {
-                        _client?.Dispose();
-                        _client = null;
-                    }
-                }
-            }
+            _reader = null;
+            _stream = null;
+            _client = null;
         }
     }
 }

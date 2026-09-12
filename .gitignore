@@ -122,3 +122,12 @@ release/
 .cache/
 tmp/
 temp/
+
+# Server storage files (large binary test files)
+Code/Server/Storage/*.bin
+Code/Server/Storage/*.iso
+Code/Server/Storage/*.zip
+Code/Server/Storage/*.rar
+Code/Server/Storage/*.7z
+Code/Server/Storage/*.tar
+Code/Server/Storage/*.gz

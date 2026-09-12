@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 
 namespace Server
 {
@@ -7,8 +9,7 @@ namespace Server
     {
         private static readonly object SyncLock = new object();
 
-        private static readonly string LogDirectory =
-            Path.Combine(AppContext.BaseDirectory, "logs");
+        private static readonly string LogDirectory = ServerConfig.LogDirectory;
 
         private static readonly string LogFilePath =
             Path.Combine(LogDirectory, "server.log");
@@ -40,32 +41,93 @@ namespace Server
         public static void LogWarning(string message) => Log(message, "WARN", ConsoleColor.Yellow);
         public static void LogError(string message) => Log(message, "ERROR", ConsoleColor.Red);
 
-        public static void LogConnection(string clientEndpoint) => Log($"Client ket noi: {clientEndpoint}", "CONNECT", ConsoleColor.Green);
-        public static void LogDisconnect(string clientEndpoint) => Log($"Client ngat ket noi: {clientEndpoint}", "DISCONNECT", ConsoleColor.DarkYellow);
-
         public static void LogDownload(string fileName, long bytes) =>
             Log($"Tai file: {fileName} | {bytes} bytes", "DOWNLOAD", ConsoleColor.Yellow);
 
         public static void LogServerStart(int port) =>
             Log($"Server khoi dong, lang nghe tai cong {port}", "INFO", ConsoleColor.Cyan);
 
-        private static int _onlineClients;
-        public static void ClientConnected(string endpoint)
+        // ─────────────────────────────────────────────────────────
+        //  ĐẾM CLIENT ONLINE — LOG CONNECT/DISCONNECT CÓ CHỌN LỌC
+        // ─────────────────────────────────────────────────────────
+
+        private static readonly Dictionary<string, int> _connectionCountByIp = new();
+        private static readonly object _ipLock = new object();
+        private static int _lastPrintedCount = -1;
+
+        public static void ClientConnected(string endpoint, bool silent = false)
         {
-            Interlocked.Increment(ref _onlineClients); LogConnection(endpoint);
-            PrintStatus();
+            string ip = GetIpFromEndpoint(endpoint);
+
+            lock (_ipLock)
+            {
+                if (!_connectionCountByIp.ContainsKey(ip))
+                    _connectionCountByIp[ip] = 0;
+
+                _connectionCountByIp[ip]++;
+            }
+
+            if (!silent)
+            {
+                Log($"Client ket noi: {endpoint}", "CONNECT", ConsoleColor.Green);
+            }
+
+            PrintStatusIfChanged();
         }
 
-        public static void ClientDisconnected(string endpoint)
+        public static void ClientDisconnected(string endpoint, bool silent = false)
         {
-            Interlocked.Decrement(ref _onlineClients); LogDisconnect(endpoint);
-            PrintStatus();
+            string ip = GetIpFromEndpoint(endpoint);
+
+            lock (_ipLock)
+            {
+                if (_connectionCountByIp.ContainsKey(ip))
+                {
+                    _connectionCountByIp[ip]--;
+
+                    if (_connectionCountByIp[ip] <= 0)
+                        _connectionCountByIp.Remove(ip);
+                }
+            }
+
+            if (!silent)
+            {
+                Log($"Client ngat ket noi: {endpoint}", "DISCONNECT", ConsoleColor.DarkYellow);
+            }
+
+            PrintStatusIfChanged();
         }
 
-        private static void PrintStatus()
+        private static string GetIpFromEndpoint(string endpoint)
         {
+            int colonIndex = endpoint.LastIndexOf(':');
+            if (colonIndex > 0)
+            {
+                string ip = endpoint.Substring(0, colonIndex);
+
+                if (ip == "[::1]" || ip == "::1")
+                    return "127.0.0.1";
+
+                return ip;
+            }
+            return endpoint;
+        }
+
+        private static void PrintStatusIfChanged()
+        {
+            int currentCount;
+            lock (_ipLock)
+            {
+                currentCount = _connectionCountByIp.Count;
+            }
+
+            if (currentCount == _lastPrintedCount)
+                return;
+
+            _lastPrintedCount = currentCount;
+
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"--- So client dang online: {_onlineClients} ---");
+            Console.WriteLine($"--- So client dang online: {currentCount} ---");
             Console.ResetColor();
         }
     }
