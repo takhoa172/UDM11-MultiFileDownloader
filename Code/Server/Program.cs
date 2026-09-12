@@ -6,9 +6,6 @@ using Server;
 
 const int ServerPort = 8080;
 
-const int ClientReadTimeoutMs = 30000;
-const int ClientWriteTimeoutMs = 30000;
-
 TcpListener listener = new(IPAddress.Any, ServerPort);
 listener.Start();
 
@@ -78,8 +75,10 @@ static async Task HandleClientAsync(TcpClient client)
         await using (NetworkStream stream = client.GetStream())
         using (StreamReader reader = new(stream))
         {
-            client.ReceiveTimeout = ClientReadTimeoutMs;
-            client.SendTimeout = ClientWriteTimeoutMs;
+            SocketTimeoutManager.Apply(
+                client,
+                SocketTimeoutManager.DefaultReadTimeoutMs,
+                SocketTimeoutManager.DefaultWriteTimeoutMs);
 
             while (true)
             {
@@ -88,7 +87,8 @@ static async Task HandleClientAsync(TcpClient client)
                 try
                 {
                     using CancellationTokenSource readCts =
-                        new(TimeSpan.FromMilliseconds(ClientReadTimeoutMs));
+                        SocketTimeoutManager.CreateLinkedCts(
+                            SocketTimeoutManager.DefaultReadTimeoutMs);
 
                     line = await reader.ReadLineAsync(readCts.Token);
                 }
@@ -280,8 +280,8 @@ static async Task ProcessRequestAsync(
                         ServerConfig.StoragePath,
                         safeFileName);
 
-                    using CancellationTokenSource downloadCts =
-                        new(TimeSpan.FromMinutes(30));
+                using CancellationTokenSource downloadCts =
+                    SocketTimeoutManager.CreateLinkedCts(30 * 60 * 1000);
 
                     await FileStreamer.StreamFileAsync(
                         stream,

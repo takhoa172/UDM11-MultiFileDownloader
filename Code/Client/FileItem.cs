@@ -14,7 +14,10 @@ namespace Client
 
     public class FileItem : INotifyPropertyChanged
     {
+        public int STT { get; set; }
+
         private string _fileName = string.Empty;
+        private string _displayName = string.Empty;
         private long _fileSizeBytes;
         private int _progress;
         private DownloadStatus _status = DownloadStatus.Pending;
@@ -24,6 +27,12 @@ namespace Client
         {
             get => _fileName;
             set { if (_fileName != value) { _fileName = value; OnPropertyChanged(); } }
+        }
+
+        public string DisplayName
+        {
+            get => _displayName;
+            set { if (_displayName != value) { _displayName = value; OnPropertyChanged(); } }
         }
 
         public long FileSizeBytes

@@ -9,7 +9,8 @@ namespace Client
 {
     public class NetworkService : IDisposable
     {
-        private const int ConnectTimeoutMs = 30000;
+        //private const int ConnectTimeoutMs = 30000;
+        private const int ConnectTimeoutMs = 5000;
         private const int ReadTimeoutMs = 30000;
         private const int WriteTimeoutMs = 30000;
 

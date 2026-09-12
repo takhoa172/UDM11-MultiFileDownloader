@@ -17,6 +17,7 @@
             {
                 components.Dispose();
             }
+
             base.Dispose(disposing);
         }
 
@@ -35,10 +36,16 @@
             lblServerPort = new Label();
             lblStatus = new Label();
             lblServerIp = new Label();
+            lblSaveFolder = new Label();
+            txtSaveFolder = new TextBox();
+            btnChooseFolder = new Button();
             gbServerFiles = new GroupBox();
             dgvServer = new DataGridView();
             gbDownloads = new GroupBox();
             dgvDownload = new DataGridView();
+            lblLastSaved = new Label();
+            lblDownloadStats = new Label();
+            txtNotification = new TextBox();
             gbConnection.SuspendLayout();
             gbServerFiles.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvServer).BeginInit();
@@ -55,6 +62,9 @@
             gbConnection.Controls.Add(lblServerPort);
             gbConnection.Controls.Add(lblStatus);
             gbConnection.Controls.Add(lblServerIp);
+            gbConnection.Controls.Add(lblSaveFolder);
+            gbConnection.Controls.Add(txtSaveFolder);
+            gbConnection.Controls.Add(btnChooseFolder);
             gbConnection.Location = new Point(12, 12);
             gbConnection.Name = "gbConnection";
             gbConnection.Size = new Size(960, 80);
@@ -118,6 +128,34 @@
             lblServerIp.TabIndex = 0;
             lblServerIp.Text = "IP Server:";
             // 
+            // lblSaveFolder
+            // 
+            lblSaveFolder.AutoSize = true;
+            lblSaveFolder.Location = new Point(560, 28);
+            lblSaveFolder.Name = "lblSaveFolder";
+            lblSaveFolder.Size = new Size(87, 17);
+            lblSaveFolder.TabIndex = 8;
+            lblSaveFolder.Text = "Thư mục lưu: ";
+            // 
+            // txtSaveFolder
+            // 
+            txtSaveFolder.Location = new Point(560, 42);
+            txtSaveFolder.Name = "txtSaveFolder";
+            txtSaveFolder.ReadOnly = true;
+            txtSaveFolder.Size = new Size(300, 25);
+            txtSaveFolder.TabIndex = 9;
+            txtSaveFolder.TabStop = false;
+            // 
+            // btnChooseFolder
+            // 
+            btnChooseFolder.Location = new Point(866, 40);
+            btnChooseFolder.Name = "btnChooseFolder";
+            btnChooseFolder.Size = new Size(70, 27);
+            btnChooseFolder.TabIndex = 10;
+            btnChooseFolder.Text = "Chọn...";
+            btnChooseFolder.UseVisualStyleBackColor = true;
+            btnChooseFolder.Click += btnChooseFolder_Click;
+            // 
             // gbServerFiles
             // 
             gbServerFiles.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
@@ -140,6 +178,7 @@
             dgvServer.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvServer.Size = new Size(388, 334);
             dgvServer.TabIndex = 0;
+            //dgvServer.CellContentClick += dgvServer_CellContentClick;
             // 
             // gbDownloads
             // 
@@ -165,6 +204,39 @@
             dgvDownload.Size = new Size(554, 334);
             dgvDownload.TabIndex = 0;
             // 
+            // lblLastSaved
+            // 
+            lblLastSaved.AutoSize = true;
+            lblLastSaved.ForeColor = Color.ForestGreen;
+            lblLastSaved.Location = new Point(12, 462);
+            lblLastSaved.Name = "lblLastSaved";
+            lblLastSaved.Size = new Size(154, 17);
+            lblLastSaved.TabIndex = 3;
+            lblLastSaved.Text = "Đã lưu: (chưa có file nào)";
+            // 
+            // lblDownloadStats
+            // 
+            lblDownloadStats.AutoSize = true;
+            lblDownloadStats.ForeColor = Color.SteelBlue;
+            lblDownloadStats.Location = new Point(200, 462);
+            lblDownloadStats.Name = "lblDownloadStats";
+            lblDownloadStats.Size = new Size(174, 17);
+            lblDownloadStats.TabIndex = 4;
+            lblDownloadStats.Text = "Tổng: 0 file | Đã tải: 0 | Lỗi: 0";
+            // 
+            // txtNotification
+            // 
+            txtNotification.BackColor = Color.White;
+            txtNotification.ForeColor = Color.ForestGreen;
+            txtNotification.Location = new Point(12, 482);
+            txtNotification.Multiline = true;
+            txtNotification.Name = "txtNotification";
+            txtNotification.ReadOnly = true;
+            txtNotification.ScrollBars = ScrollBars.Vertical;
+            txtNotification.Size = new Size(960, 60);
+            txtNotification.TabIndex = 5;
+            txtNotification.TabStop = false;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 17F);
@@ -173,6 +245,9 @@
             Controls.Add(gbDownloads);
             Controls.Add(gbServerFiles);
             Controls.Add(gbConnection);
+            Controls.Add(lblLastSaved);
+            Controls.Add(lblDownloadStats);
+            Controls.Add(txtNotification);
             Font = new Font("Segoe UI", 9.75F);
             MinimumSize = new Size(1000, 600);
             Name = "MainForm";
@@ -185,6 +260,7 @@
             gbDownloads.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvDownload).EndInit();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -200,5 +276,11 @@
         private Button btnConnect;
         private TextBox txtServerIp;
         private TextBox txtServerPort;
+        private Label lblSaveFolder;
+        private TextBox txtSaveFolder;
+        private Button btnChooseFolder;
+        private Label lblLastSaved;
+        private Label lblDownloadStats;
+        private TextBox txtNotification;
     }
 }

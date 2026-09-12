@@ -9,8 +9,7 @@ namespace Server
     {
         private static readonly object SyncLock = new object();
 
-        private static readonly string LogDirectory =
-            Path.Combine(AppContext.BaseDirectory, "logs");
+        private static readonly string LogDirectory = ServerConfig.LogDirectory;
 
         private static readonly string LogFilePath =
             Path.Combine(LogDirectory, "server.log");
