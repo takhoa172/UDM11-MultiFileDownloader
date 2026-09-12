@@ -21,6 +21,9 @@ public sealed class ProtocolPacket
     public string? DataBase64 { get; set; }
     public bool IsLastChunk { get; set; } = true;
     public string? FileHash { get; set; }
+    public long TotalSize { get; set; }
+    public int ChunkIndex { get; set; }
+    public int TotalChunks { get; set; }
 }
 
 public static class PacketHelper
@@ -35,9 +38,13 @@ public static class PacketHelper
     {
         ArgumentNullException.ThrowIfNull(packet);
 
-        // Moi goi tin la 1 dong JSON, ket thuc bang newline de tach goi tren TCP.
         string json = JsonSerializer.Serialize(packet, JsonOptions);
         return Encoding.UTF8.GetBytes(json + "\n");
+    }
+    public static string EncodeToString(ProtocolPacket packet)
+    {
+        ArgumentNullException.ThrowIfNull(packet);
+        return JsonSerializer.Serialize(packet, JsonOptions);
     }
 
     public static ProtocolPacket Decode(byte[] data)

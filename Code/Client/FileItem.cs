@@ -1,35 +1,99 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+
 namespace Client
 {
-    public class FileItem
+    public enum DownloadStatus
     {
-        public string FileName { get; set; } = string.Empty;
+        Pending,
+        Downloading,
+        Completed,
+        Error
+    }
 
-        public long FileSizeBytes { get; set; }
+    public class FileItem : INotifyPropertyChanged
+    {
+        private string _fileName = string.Empty;
+        private long _fileSizeBytes;
+        private int _progress;
+        private DownloadStatus _status = DownloadStatus.Pending;
+        private string _speedInfo = string.Empty;
+
+        public string FileName
+        {
+            get => _fileName;
+            set { if (_fileName != value) { _fileName = value; OnPropertyChanged(); } }
+        }
+
+        public long FileSizeBytes
+        {
+            get => _fileSizeBytes;
+            set { if (_fileSizeBytes != value) { _fileSizeBytes = value; OnPropertyChanged(); OnPropertyChanged(nameof(FormattedSize)); } }
+        }
 
         public string FileHash { get; set; } = string.Empty;
 
         public string FormattedSize => FormatSize(FileSizeBytes);
 
+        public int Progress
+        {
+            get => _progress;
+            set
+            {
+                if (_progress != value)
+                {
+                    _progress = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ProgressText));
+                }
+            }
+        }
+
+        public DownloadStatus Status
+        {
+            get => _status;
+            set
+            {
+                if (_status != value)
+                {
+                    _status = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(StatusText));
+                }
+            }
+        }
+
+        public string SpeedInfo
+        {
+            get => _speedInfo;
+            set { if (_speedInfo != value) { _speedInfo = value; OnPropertyChanged(); } }
+        }
+
+        public string ProgressText => Progress > 0 ? $"{Progress}%" : "";
+
+        public string StatusText => Status switch
+        {
+            DownloadStatus.Pending => "Chờ slot...",
+            DownloadStatus.Downloading => "Đang tải",
+            DownloadStatus.Completed => "Hoàn thành",
+            DownloadStatus.Error => "Lỗi",
+            _ => ""
+        };
+
         private static string FormatSize(long bytes)
         {
             if (bytes <= 0) return "0 MB";
-
             double sizeInMb = (double)bytes / (1024 * 1024);
+            if (sizeInMb < 0.1) return $"{((double)bytes / 1024):0.##} KB";
+            if (sizeInMb >= 1024) return $"{(sizeInMb / 1024):0.##} GB";
+            return $"{sizeInMb:0.##} MB";
+        }
 
-            if (sizeInMb < 0.1)
-            {
-                double sizeInKb = (double)bytes / 1024;
-                return $"{sizeInKb:0.##} KB";
-            }
-            else if (sizeInMb >= 1024)
-            {
-                double sizeInGb = sizeInMb / 1024;
-                return $"{sizeInGb:0.##} GB";
-            }
-            else
-            {
-                return $"{sizeInMb:0.##} MB";
-            }
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }

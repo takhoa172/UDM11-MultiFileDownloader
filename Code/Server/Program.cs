@@ -14,6 +14,10 @@ listener.Start();
 
 ServerLogger.LogServerStart(ServerPort);
 
+// ─────────────────────────────────────────────────────────────
+//  SPEED TEST
+// ─────────────────────────────────────────────────────────────
+
 if (args.Length > 0 && args[0] == "--speedtest")
 {
     RateLimiter rl = new RateLimiter(5 * 1024 * 1024);
@@ -44,6 +48,10 @@ if (args.Length > 0 && args[0] == "--speedtest")
     return;
 }
 
+// ─────────────────────────────────────────────────────────────
+//  ACCEPT LOOP
+// ─────────────────────────────────────────────────────────────
+
 while (true)
 {
     TcpClient client = await listener.AcceptTcpClientAsync();
@@ -51,12 +59,18 @@ while (true)
     _ = Task.Run(() => HandleClientAsync(client));
 }
 
+// ─────────────────────────────────────────────────────────────
+//  HANDLE CLIENT
+// ─────────────────────────────────────────────────────────────
+
 static async Task HandleClientAsync(TcpClient client)
 {
     string clientIp =
         client.Client.RemoteEndPoint?.ToString() ?? "unknown";
 
-    ServerLogger.ClientConnected(clientIp);
+    bool connectionCounted = false;
+
+    bool isMainConnection = false;
 
     try
     {
@@ -64,7 +78,6 @@ static async Task HandleClientAsync(TcpClient client)
         await using (NetworkStream stream = client.GetStream())
         using (StreamReader reader = new(stream))
         {
-            // Timeout ở tầng socket.
             client.ReceiveTimeout = ClientReadTimeoutMs;
             client.SendTimeout = ClientWriteTimeoutMs;
 
@@ -92,8 +105,7 @@ static async Task HandleClientAsync(TcpClient client)
                     break;
                 }
 
-                string? rawError =
-                    PacketValidator.ValidateRaw(line);
+                string? rawError = PacketValidator.ValidateRaw(line);
 
                 if (rawError != null)
                 {
@@ -135,8 +147,7 @@ static async Task HandleClientAsync(TcpClient client)
                     continue;
                 }
 
-                string? reqError =
-                    PacketValidator.ValidateRequest(request);
+                string? reqError = PacketValidator.ValidateRequest(request);
 
                 if (reqError != null)
                 {
@@ -155,13 +166,26 @@ static async Task HandleClientAsync(TcpClient client)
                     continue;
                 }
 
+                if (!connectionCounted)
+                {
+                    connectionCounted = true;
+
+                    if (request.Command == PacketCommand.GET_LIST)
+                    {
+                        isMainConnection = true;
+                        ServerLogger.ClientConnected(clientIp, silent: false);
+                    }
+                    else
+                    {
+                        isMainConnection = false;
+                        ServerLogger.ClientConnected(clientIp, silent: true);
+                    }
+                }
+
                 ServerLogger.LogInfo(
                     $"[{clientIp}] Nhan lenh {request.Command}");
 
-                await ProcessRequestAsync(
-                    stream,
-                    request,
-                    clientIp);
+                await ProcessRequestAsync(stream, request, clientIp);
             }
         }
     }
@@ -187,9 +211,22 @@ static async Task HandleClientAsync(TcpClient client)
     }
     finally
     {
-        ServerLogger.ClientDisconnected(clientIp);
+        if (connectionCounted)
+        {
+            if (isMainConnection)
+            {
+                ServerLogger.ClientDisconnected(clientIp, silent: false);
+            }
+            else
+            {
+                ServerLogger.ClientDisconnected(clientIp, silent: true);
+            }
+        }
     }
 }
+// ─────────────────────────────────────────────────────────────
+//  PROCESS REQUEST
+// ─────────────────────────────────────────────────────────────
 
 static async Task ProcessRequestAsync(
     NetworkStream stream,
@@ -205,57 +242,55 @@ static async Task ProcessRequestAsync(
                 break;
 
             case PacketCommand.DOWNLOAD_REQ:
-            {
-                ServerLogger.LogInfo(
-                    $"[{clientIp}] Yeu cau tai file: {request.FileName}");
-
-                if (string.IsNullOrWhiteSpace(request.FileName))
                 {
-                    await SendPacketAsync(
-                        stream,
-                        new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "400_BAD_REQUEST",
-                            Message = "Ten file khong hop le."
-                        });
+                    ServerLogger.LogInfo(
+                        $"[{clientIp}] Yeu cau tai file: {request.FileName}");
 
-                    break;
-                }
+                    if (string.IsNullOrWhiteSpace(request.FileName))
+                    {
+                        await SendPacketAsync(
+                            stream,
+                            new ProtocolPacket
+                            {
+                                Command = PacketCommand.ERROR_RESP,
+                                ErrorCode = "400_BAD_REQUEST",
+                                Message = "Ten file khong hop le."
+                            });
 
-                string safeFileName =
-                    Path.GetFileName(request.FileName);
+                        break;
+                    }
 
-                if (string.IsNullOrWhiteSpace(safeFileName))
-                {
-                    await SendPacketAsync(
-                        stream,
-                        new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "400_BAD_REQUEST",
-                            Message = "Ten file khong hop le."
-                        });
+                    string safeFileName = Path.GetFileName(request.FileName);
 
-                    break;
-                }
+                    if (string.IsNullOrWhiteSpace(safeFileName))
+                    {
+                        await SendPacketAsync(
+                            stream,
+                            new ProtocolPacket
+                            {
+                                Command = PacketCommand.ERROR_RESP,
+                                ErrorCode = "400_BAD_REQUEST",
+                                Message = "Ten file khong hop le."
+                            });
 
-                string filePath =
-                    Path.Combine(
+                        break;
+                    }
+
+                    string filePath = Path.Combine(
                         ServerConfig.StoragePath,
                         safeFileName);
 
-                using CancellationTokenSource downloadCts =
-                    new(TimeSpan.FromMinutes(30));
+                    using CancellationTokenSource downloadCts =
+                        new(TimeSpan.FromMinutes(30));
 
-                await FileStreamer.StreamFileAsync(
-                    stream,
-                    filePath,
-                    safeFileName,
-                    downloadCts.Token);
+                    await FileStreamer.StreamFileAsync(
+                        stream,
+                        filePath,
+                        safeFileName,
+                        downloadCts.Token);
 
-                break;
-            }
+                    break;
+                }
 
             default:
                 await SendPacketAsync(
@@ -294,47 +329,39 @@ static async Task ProcessRequestAsync(
         }
         catch
         {
-            // Client co the da ngat ket noi.
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────
+//  SEND FILE LIST
+// ─────────────────────────────────────────────────────────────
+
 static async Task SendFileListAsync(NetworkStream stream)
 {
-    List<ServerFileInfo> files =
-        FileScanner.Scan(ServerConfig.StoragePath);
+    List<ServerFileInfo> files = FileScanner.Scan(ServerConfig.StoragePath);
 
-    string fileList =
-        string.Join(
-            '\n',
-            files.Select(file =>
-                $"{file.FileName}|{file.FileSize}|{file.FileHash}"));
+    string fileList = string.Join('\n',
+        files.Select(f => $"{f.FileName}|{f.FileSize}|{f.FileHash}"));
 
-    await SendPacketAsync(
-        stream,
-        new ProtocolPacket
-        {
-            Command = PacketCommand.FILE_CHUNK,
-            FileName = "file-list.txt",
-            DataBase64 = PacketHelper.EncodeTextData(fileList),
-            IsLastChunk = true
-        });
+    var packet = new ProtocolPacket
+    {
+        Command = PacketCommand.FILE_CHUNK,
+        FileName = "file-list.txt",
+        DataBase64 = PacketHelper.EncodeTextData(fileList),
+        IsLastChunk = true
+    };
+
+    await SendPacketAsync(stream, packet);
 }
 
-static async Task SendPacketAsync(
-    NetworkStream stream,
-    ProtocolPacket packet)
+// ─────────────────────────────────────────────────────────────
+//  SEND PACKET
+// ─────────────────────────────────────────────────────────────
+
+static async Task SendPacketAsync(NetworkStream stream, ProtocolPacket packet)
 {
-    byte[] data =
-        PacketHelper.Encode(packet);
-
-    using CancellationTokenSource writeCts =
-        new(TimeSpan.FromMilliseconds(ClientWriteTimeoutMs));
-
-    await stream.WriteAsync(
-        data.AsMemory(),
-        writeCts.Token);
-
-    await stream.FlushAsync(
-        writeCts.Token);
+    byte[] data = PacketHelper.Encode(packet);
+    await stream.WriteAsync(data);
+    await stream.FlushAsync();
 }
