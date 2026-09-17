@@ -4,12 +4,10 @@ using System.Diagnostics;
 using Shared;
 using Server;
 
-const int ServerPort = 8080;
-
-TcpListener listener = new(IPAddress.Any, ServerPort);
+TcpListener listener = new(IPAddress.Any, ServerConfig.Port);
 listener.Start();
 
-ServerLogger.LogServerStart(ServerPort);
+ServerLogger.LogServerStart(ServerConfig.Port);
 
 // ─────────────────────────────────────────────────────────────
 //  SPEED TEST
@@ -77,8 +75,8 @@ static async Task HandleClientAsync(TcpClient client)
         {
             SocketTimeoutManager.Apply(
                 client,
-                SocketTimeoutManager.DefaultReadTimeoutMs,
-                SocketTimeoutManager.DefaultWriteTimeoutMs);
+                ServerConfig.ReadTimeoutMs,
+                ServerConfig.WriteTimeoutMs);
 
             while (true)
             {
@@ -88,7 +86,7 @@ static async Task HandleClientAsync(TcpClient client)
                 {
                     using CancellationTokenSource readCts =
                         SocketTimeoutManager.CreateLinkedCts(
-                            SocketTimeoutManager.DefaultReadTimeoutMs);
+                            ServerConfig.ReadTimeoutMs);
 
                     line = await reader.ReadLineAsync(readCts.Token);
                 }
@@ -170,20 +168,19 @@ static async Task HandleClientAsync(TcpClient client)
                 {
                     connectionCounted = true;
 
+
                     if (request.Command == PacketCommand.GET_LIST)
                     {
                         isMainConnection = true;
                         ServerLogger.ClientConnected(clientIp, silent: false);
                     }
-                    else
-                    {
-                        isMainConnection = false;
-                        ServerLogger.ClientConnected(clientIp, silent: true);
-                    }
                 }
 
-                ServerLogger.LogInfo(
-                    $"[{clientIp}] Nhan lenh {request.Command}");
+                if (request.Command != PacketCommand.PING)
+                {
+                    ServerLogger.LogInfo(
+                        $"[{clientIp}] Nhan lenh {request.Command}");
+                }
 
                 await ProcessRequestAsync(stream, request, clientIp);
             }
@@ -211,16 +208,9 @@ static async Task HandleClientAsync(TcpClient client)
     }
     finally
     {
-        if (connectionCounted)
+        if (connectionCounted && isMainConnection)
         {
-            if (isMainConnection)
-            {
-                ServerLogger.ClientDisconnected(clientIp, silent: false);
-            }
-            else
-            {
-                ServerLogger.ClientDisconnected(clientIp, silent: true);
-            }
+            ServerLogger.ClientDisconnected(clientIp, silent: false);
         }
     }
 }
@@ -239,6 +229,13 @@ static async Task ProcessRequestAsync(
         {
             case PacketCommand.GET_LIST:
                 await SendFileListAsync(stream);
+                break;
+
+            case PacketCommand.PING:
+                await SendPacketAsync(stream, new ProtocolPacket
+                {
+                    Command = PacketCommand.PONG
+                });
                 break;
 
             case PacketCommand.DOWNLOAD_REQ:

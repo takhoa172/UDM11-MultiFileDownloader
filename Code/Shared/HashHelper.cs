@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Shared
@@ -43,10 +42,5 @@ namespace Shared
             byte[] hashBytes = sha256.ComputeHash(data);
             return Convert.ToHexString(hashBytes).ToLower();
         }
-
-        //public static string CalculateSha256(string content)
-        //{
-        //    return CalculateSha256(Encoding.UTF8.GetBytes(content ?? string.Empty));
-        //}
     }
 }

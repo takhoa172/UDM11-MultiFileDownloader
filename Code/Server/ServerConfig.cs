@@ -1,43 +1,17 @@
-﻿//namespace Server;
-
-//public static class ServerConfig
-//{
-//    public static readonly RateLimiter DownloadLimiter =
-//        new RateLimiter(5 * 1024 * 1024);
-
-//    public static string StoragePath { get; } = FindStoragePath();
-
-//    private static string FindStoragePath()
-//    {
-//        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-
-//        while (dir != null && !dir.GetFiles("*.csproj").Any())
-//        {
-//            dir = dir.Parent;
-//        }
-
-//        if (dir != null)
-//        {
-//            string storagePath = Path.Combine(dir.FullName, "Storage");
-
-//            if (!Directory.Exists(storagePath))
-//                Directory.CreateDirectory(storagePath);
-
-//            return storagePath;
-//        }
-
-//        string fallback = Path.Combine(AppContext.BaseDirectory, "Storage");
-//        Directory.CreateDirectory(fallback);
-//        return fallback;
-//    }
-//}
-
-namespace Server;
+﻿namespace Server;
 
 public static class ServerConfig
 {
+    // Cau hinh doc tu appsettings.json (co gia tri mac dinh neu thieu file).
+    public static ServerSettings Settings { get; } = ServerSettings.Load();
+
+    public static int Port => Settings.Server.Port;
+    public static int ReadTimeoutMs => Settings.Timeout.ReadMs;
+    public static int WriteTimeoutMs => Settings.Timeout.WriteMs;
+    public static int BufferSize => Settings.Transfer.BufferSize;
+
     public static readonly RateLimiter DownloadLimiter =
-        new RateLimiter(5 * 1024 * 1024);
+        new RateLimiter(Settings.RateLimit.BytesPerSecond, Settings.RateLimit.MaxBurstBytes);
 
     public static string ProjectRoot { get; } = FindProjectRoot();
 

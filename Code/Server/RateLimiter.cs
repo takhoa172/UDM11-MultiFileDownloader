@@ -6,16 +6,18 @@ namespace Server
     public sealed class RateLimiter
     {
         private readonly double _bytesPerSecond;
+        private readonly double _maxTokens;
         private readonly object _sync = new object();
         private double _tokens;
         private long _lastTicks;
         public const long Unlimited = -1;
 
-        public RateLimiter(long bytesPerSecond)
+        public RateLimiter(long bytesPerSecond, long maxBurstBytes = 0)
         {
             if (bytesPerSecond != Unlimited && bytesPerSecond <= 0)
                 throw new ArgumentOutOfRangeException(nameof(bytesPerSecond));
             _bytesPerSecond = bytesPerSecond;
+            _maxTokens = maxBurstBytes > 0 ? maxBurstBytes : bytesPerSecond;
             _tokens = 0;
             _lastTicks = DateTime.UtcNow.Ticks;
         }
@@ -33,7 +35,7 @@ namespace Server
                 {
                     long nowTicks = DateTime.UtcNow.Ticks;
                     double elapsedSeconds = (nowTicks - _lastTicks) / (double)TimeSpan.TicksPerSecond;
-                    _tokens = Math.Min(_bytesPerSecond, _tokens + elapsedSeconds * _bytesPerSecond);
+                    _tokens = Math.Min(_maxTokens, _tokens + elapsedSeconds * _bytesPerSecond);
                     _lastTicks = nowTicks;
 
                     if (bytes <= _tokens)

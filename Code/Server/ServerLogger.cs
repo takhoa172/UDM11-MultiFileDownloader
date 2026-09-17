@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
+using System.Linq;
 
 namespace Server
 {
@@ -47,9 +47,7 @@ namespace Server
         public static void LogServerStart(int port) =>
             Log($"Server khoi dong, lang nghe tai cong {port}", "INFO", ConsoleColor.Cyan);
 
-        // ─────────────────────────────────────────────────────────
-        //  ĐẾM CLIENT ONLINE — LOG CONNECT/DISCONNECT CÓ CHỌN LỌC
-        // ─────────────────────────────────────────────────────────
+        //  ĐẾM CLIENT ONLINE
 
         private static readonly Dictionary<string, int> _connectionCountByIp = new();
         private static readonly object _ipLock = new object();
@@ -118,7 +116,7 @@ namespace Server
             int currentCount;
             lock (_ipLock)
             {
-                currentCount = _connectionCountByIp.Count;
+                currentCount = _connectionCountByIp.Values.Sum();
             }
 
             if (currentCount == _lastPrintedCount)

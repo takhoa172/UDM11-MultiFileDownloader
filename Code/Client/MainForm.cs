@@ -1,13 +1,11 @@
 ﻿using Shared;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Client.Logic;
@@ -17,17 +15,31 @@ namespace Client
     public partial class MainForm : Form
     {
         private bool _isConnected = false;
+        private bool _mainConnectionBusy = false;
         private readonly NetworkService _networkService = new NetworkService();
+        private readonly System.Windows.Forms.Timer _heartbeatTimer = new();
 
         private readonly BindingList<FileItem> _serverFiles = new BindingList<FileItem>();
         private readonly BindingList<FileItem> _downloadFiles = new BindingList<FileItem>();
 
-        private readonly DownloadManager _downloadManager = new DownloadManager(3);
+        private readonly DownloadManager _downloadManager =
+            new DownloadManager(ClientConfig.Settings.Download.MaxConcurrentDownloads);
         private string _serverIp = "";
         private int _serverPort = 0;
 
-        private string _downloadFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        private string _downloadFolder = ResolveSaveFolder();
+
+        private static string ResolveSaveFolder()
+        {
+            string configured = ClientConfig.Settings.Download.SaveFolder;
+
+            if (!string.IsNullOrWhiteSpace(configured))
+                return configured;
+
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Downloads");
+        }
 
         private bool _isSelecting = false;
         private Point _selectStartPoint;
@@ -36,11 +48,7 @@ namespace Client
         private Point _dragStartPoint = Point.Empty;
         private bool _mouseDownOnEmpty = false;
         private bool _mouseDownForDrag = false;
-        private int _mouseDownRowIndex = -1;
         private List<FileItem> _savedSelection = new List<FileItem>();
-
-        private DateTime _lastFetchTime = DateTime.MinValue;
-        private readonly TimeSpan _minFetchInterval = TimeSpan.FromSeconds(1);
 
         public MainForm()
         {
@@ -50,6 +58,9 @@ namespace Client
             SetupDragAndDrop();
             SetConnectionState(false);
             txtSaveFolder.Text = _downloadFolder;
+
+            _heartbeatTimer.Interval = 10000;
+            _heartbeatTimer.Tick += async (s, e) => await HeartbeatAsync();
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -237,8 +248,7 @@ namespace Client
                 _serverPort = port;
 
                 SetConnectionState(true);
-
-                _lastFetchTime = DateTime.Now;
+                _heartbeatTimer.Start();
 
                 await FetchServerFileListAsync();
             }
@@ -292,6 +302,34 @@ namespace Client
             lblDownloadStats.Text = $"Tổng: {total} file | Đã tải: {done} | Lỗi: {err}";
         }
 
+        private async Task HeartbeatAsync()
+        {
+            if (!_isConnected || _mainConnectionBusy) return;
+
+            _mainConnectionBusy = true;
+            try
+            {
+                await _networkService.SendPacketAsync(new ProtocolPacket
+                {
+                    Command = PacketCommand.PING
+                });
+
+                ProtocolPacket resp = await _networkService.ReadPacketAsync();
+                if (resp.Command != PacketCommand.PONG)
+                    throw new IOException("PONG khong hop le.");
+            }
+            catch
+            {
+                _heartbeatTimer.Stop();
+                _networkService.Dispose();
+                SetConnectionState(false, "● Mất kết nối");
+            }
+            finally
+            {
+                _mainConnectionBusy = false;
+            }
+        }
+
         public void SetConnectionState(bool isConnected, string customStatus = "")
         {
             if (InvokeRequired)
@@ -322,6 +360,8 @@ namespace Client
 
                 this.Text = baseTitle;
 
+                _heartbeatTimer.Stop();
+
                 _serverFiles.Clear();
                 _downloadFiles.Clear();
                 UpdateDownloadStats();
@@ -334,8 +374,7 @@ namespace Client
 
         private async Task FetchServerFileListAsync()
         {
-            _lastFetchTime = DateTime.Now;
-
+            _mainConnectionBusy = true;
             try
             {
                 await _networkService.SendPacketAsync(new ProtocolPacket
@@ -386,6 +425,10 @@ namespace Client
             {
                 Console.WriteLine($"[CLIENT] Fetch lỗi: {ex.Message}");
             }
+            finally
+            {
+                _mainConnectionBusy = false;
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -397,7 +440,6 @@ namespace Client
             if (e.Button != MouseButtons.Left) return;
 
             var hit = dgvServer.HitTest(e.X, e.Y);
-            _mouseDownRowIndex = hit.RowIndex;
 
             if (hit.Type == DataGridViewHitTestType.None ||
                 hit.Type == DataGridViewHitTestType.ColumnHeader ||
@@ -490,7 +532,6 @@ namespace Client
 
             _mouseDownOnEmpty = false;
             _mouseDownForDrag = false;
-            _mouseDownRowIndex = -1;
             _savedSelection.Clear();
         }
 
@@ -611,6 +652,11 @@ namespace Client
                     item.Status = DownloadStatus.Downloading;
             });
 
+            FileConflictMode conflictMode =
+                Enum.TryParse(ClientConfig.Settings.Download.ConflictMode, true, out FileConflictMode parsedMode)
+                    ? parsedMode
+                    : FileConflictMode.AutoRename;
+
             DownloadResult result = await _downloadManager.StartDownloadAsync(
                 item.FileName,
                 item.FileSizeBytes,
@@ -618,7 +664,7 @@ namespace Client
                 _serverPort,
                 _downloadFolder,
                 progress,
-                FileConflictMode.AutoRename);
+                conflictMode);
 
             switch (result.Status)
             {
@@ -823,6 +869,7 @@ namespace Client
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            _heartbeatTimer.Stop();
             _networkService?.Dispose();
             base.OnFormClosing(e);
         }

@@ -6,10 +6,6 @@ namespace Server;
 
 public static class FileStreamer
 {
-    private const int BufferSize = 64 * 1024;
-    private const int ReadTimeoutMs = 30000;
-    private const int WriteTimeoutMs = 30000;
-
     public static async Task StreamFileAsync(
         NetworkStream stream,
         string filePath,
@@ -34,12 +30,14 @@ public static class FileStreamer
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.Read,
-                BufferSize,
+                ServerConfig.BufferSize,
                 useAsync: true);
 
             using SHA256 sha256 = SHA256.Create();
 
-            byte[] buffer = new byte[BufferSize];
+            ServerLogger.LogDownload(fileName, fileStream.Length);
+
+            byte[] buffer = new byte[ServerConfig.BufferSize];
 
             int bytesRead;
             bool hasSentChunk = false;
@@ -50,7 +48,7 @@ public static class FileStreamer
                     CancellationTokenSource.CreateLinkedTokenSource(
                         cancellationToken);
 
-                readCts.CancelAfter(ReadTimeoutMs);
+                readCts.CancelAfter(ServerConfig.ReadTimeoutMs);
 
                 bytesRead = await fileStream.ReadAsync(
                     buffer.AsMemory(0, buffer.Length),
@@ -75,6 +73,8 @@ public static class FileStreamer
 
                 string chunkBase64 =
                     PacketHelper.EncodeBinaryData(chunk);
+
+                await ServerConfig.DownloadLimiter.ThrottleAsync(chunk.Length);
 
                 await SendPacketAsync(
                     stream,
@@ -159,7 +159,7 @@ public static class FileStreamer
             CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
 
-        writeCts.CancelAfter(WriteTimeoutMs);
+        writeCts.CancelAfter(ServerConfig.WriteTimeoutMs);
 
         await stream.WriteAsync(
             data.AsMemory(),
@@ -194,7 +194,7 @@ public static class FileStreamer
         try
         {
             using CancellationTokenSource errorCts =
-                new(TimeSpan.FromMilliseconds(WriteTimeoutMs));
+                new(TimeSpan.FromMilliseconds(ServerConfig.WriteTimeoutMs));
 
             await SendErrorAsync(
                 stream,

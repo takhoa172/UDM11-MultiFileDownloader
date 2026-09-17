@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Shared;
 
@@ -26,6 +24,8 @@ public static class PacketValidator
         switch (packet.Command)
         {
             case PacketCommand.GET_LIST:
+                return null;
+            case PacketCommand.PING:
                 return null;
             case PacketCommand.DOWNLOAD_REQ:
                 return ValidateFileName(packet.FileName);
