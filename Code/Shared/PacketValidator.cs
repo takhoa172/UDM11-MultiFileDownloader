@@ -25,6 +25,8 @@ public static class PacketValidator
         {
             case PacketCommand.GET_LIST:
                 return null;
+            case PacketCommand.PING:
+                return null;
             case PacketCommand.DOWNLOAD_REQ:
                 return ValidateFileName(packet.FileName);
             default:

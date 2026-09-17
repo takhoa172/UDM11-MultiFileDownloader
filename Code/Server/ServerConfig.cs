@@ -2,8 +2,16 @@
 
 public static class ServerConfig
 {
+    // Cau hinh doc tu appsettings.json (co gia tri mac dinh neu thieu file).
+    public static ServerSettings Settings { get; } = ServerSettings.Load();
+
+    public static int Port => Settings.Server.Port;
+    public static int ReadTimeoutMs => Settings.Timeout.ReadMs;
+    public static int WriteTimeoutMs => Settings.Timeout.WriteMs;
+    public static int BufferSize => Settings.Transfer.BufferSize;
+
     public static readonly RateLimiter DownloadLimiter =
-        new RateLimiter(5 * 1024 * 1024, 256 * 1024);
+        new RateLimiter(Settings.RateLimit.BytesPerSecond, Settings.RateLimit.MaxBurstBytes);
 
     public static string ProjectRoot { get; } = FindProjectRoot();
 

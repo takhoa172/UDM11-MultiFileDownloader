@@ -15,7 +15,9 @@ namespace Client
     public partial class MainForm : Form
     {
         private bool _isConnected = false;
+        private bool _mainConnectionBusy = false;
         private readonly NetworkService _networkService = new NetworkService();
+        private readonly System.Windows.Forms.Timer _heartbeatTimer = new();
 
         private readonly BindingList<FileItem> _serverFiles = new BindingList<FileItem>();
         private readonly BindingList<FileItem> _downloadFiles = new BindingList<FileItem>();
@@ -44,6 +46,9 @@ namespace Client
             SetupDragAndDrop();
             SetConnectionState(false);
             txtSaveFolder.Text = _downloadFolder;
+
+            _heartbeatTimer.Interval = 10000;
+            _heartbeatTimer.Tick += async (s, e) => await HeartbeatAsync();
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -231,6 +236,7 @@ namespace Client
                 _serverPort = port;
 
                 SetConnectionState(true);
+                _heartbeatTimer.Start();
 
                 await FetchServerFileListAsync();
             }
@@ -284,6 +290,34 @@ namespace Client
             lblDownloadStats.Text = $"Tổng: {total} file | Đã tải: {done} | Lỗi: {err}";
         }
 
+        private async Task HeartbeatAsync()
+        {
+            if (!_isConnected || _mainConnectionBusy) return;
+
+            _mainConnectionBusy = true;
+            try
+            {
+                await _networkService.SendPacketAsync(new ProtocolPacket
+                {
+                    Command = PacketCommand.PING
+                });
+
+                ProtocolPacket resp = await _networkService.ReadPacketAsync();
+                if (resp.Command != PacketCommand.PONG)
+                    throw new IOException("PONG khong hop le.");
+            }
+            catch
+            {
+                _heartbeatTimer.Stop();
+                _networkService.Dispose();
+                SetConnectionState(false, "● Mất kết nối");
+            }
+            finally
+            {
+                _mainConnectionBusy = false;
+            }
+        }
+
         public void SetConnectionState(bool isConnected, string customStatus = "")
         {
             if (InvokeRequired)
@@ -314,6 +348,8 @@ namespace Client
 
                 this.Text = baseTitle;
 
+                _heartbeatTimer.Stop();
+
                 _serverFiles.Clear();
                 _downloadFiles.Clear();
                 UpdateDownloadStats();
@@ -326,6 +362,7 @@ namespace Client
 
         private async Task FetchServerFileListAsync()
         {
+            _mainConnectionBusy = true;
             try
             {
                 await _networkService.SendPacketAsync(new ProtocolPacket
@@ -375,6 +412,10 @@ namespace Client
             catch (Exception ex)
             {
                 Console.WriteLine($"[CLIENT] Fetch lỗi: {ex.Message}");
+            }
+            finally
+            {
+                _mainConnectionBusy = false;
             }
         }
 
@@ -811,6 +852,7 @@ namespace Client
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            _heartbeatTimer.Stop();
             _networkService?.Dispose();
             base.OnFormClosing(e);
         }

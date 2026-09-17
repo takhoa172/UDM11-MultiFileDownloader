@@ -9,7 +9,9 @@ public enum PacketCommand
     GET_LIST,
     DOWNLOAD_REQ,
     FILE_CHUNK,
-    ERROR_RESP
+    ERROR_RESP,
+    PING,
+    PONG
 }
 
 public sealed class ProtocolPacket
