@@ -1,13 +1,11 @@
 ﻿using Shared;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Client.Logic;
@@ -36,11 +34,7 @@ namespace Client
         private Point _dragStartPoint = Point.Empty;
         private bool _mouseDownOnEmpty = false;
         private bool _mouseDownForDrag = false;
-        private int _mouseDownRowIndex = -1;
         private List<FileItem> _savedSelection = new List<FileItem>();
-
-        private DateTime _lastFetchTime = DateTime.MinValue;
-        private readonly TimeSpan _minFetchInterval = TimeSpan.FromSeconds(1);
 
         public MainForm()
         {
@@ -238,8 +232,6 @@ namespace Client
 
                 SetConnectionState(true);
 
-                _lastFetchTime = DateTime.Now;
-
                 await FetchServerFileListAsync();
             }
             catch (SocketException se)
@@ -334,8 +326,6 @@ namespace Client
 
         private async Task FetchServerFileListAsync()
         {
-            _lastFetchTime = DateTime.Now;
-
             try
             {
                 await _networkService.SendPacketAsync(new ProtocolPacket
@@ -397,7 +387,6 @@ namespace Client
             if (e.Button != MouseButtons.Left) return;
 
             var hit = dgvServer.HitTest(e.X, e.Y);
-            _mouseDownRowIndex = hit.RowIndex;
 
             if (hit.Type == DataGridViewHitTestType.None ||
                 hit.Type == DataGridViewHitTestType.ColumnHeader ||
@@ -490,7 +479,6 @@ namespace Client
 
             _mouseDownOnEmpty = false;
             _mouseDownForDrag = false;
-            _mouseDownRowIndex = -1;
             _savedSelection.Clear();
         }
 

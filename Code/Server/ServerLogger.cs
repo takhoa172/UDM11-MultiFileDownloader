@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 
 namespace Server
 {
@@ -47,9 +46,7 @@ namespace Server
         public static void LogServerStart(int port) =>
             Log($"Server khoi dong, lang nghe tai cong {port}", "INFO", ConsoleColor.Cyan);
 
-        // ─────────────────────────────────────────────────────────
         //  ĐẾM CLIENT ONLINE — LOG CONNECT/DISCONNECT CÓ CHỌN LỌC
-        // ─────────────────────────────────────────────────────────
 
         private static readonly Dictionary<string, int> _connectionCountByIp = new();
         private static readonly object _ipLock = new object();

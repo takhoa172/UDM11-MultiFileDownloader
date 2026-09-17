@@ -178,7 +178,6 @@
             dgvServer.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvServer.Size = new Size(388, 334);
             dgvServer.TabIndex = 0;
-            //dgvServer.CellContentClick += dgvServer_CellContentClick;
             // 
             // gbDownloads
             // 
