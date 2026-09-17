@@ -39,6 +39,8 @@ public static class FileStreamer
 
             using SHA256 sha256 = SHA256.Create();
 
+            ServerLogger.LogDownload(fileName, fileStream.Length);
+
             byte[] buffer = new byte[BufferSize];
 
             int bytesRead;
@@ -75,6 +77,8 @@ public static class FileStreamer
 
                 string chunkBase64 =
                     PacketHelper.EncodeBinaryData(chunk);
+
+                await ServerConfig.DownloadLimiter.ThrottleAsync(chunk.Length);
 
                 await SendPacketAsync(
                     stream,
