@@ -9,9 +9,9 @@ namespace Client
 {
     public class NetworkService : IDisposable
     {
-        private const int ConnectTimeoutMs = 5000;
-        private const int ReadTimeoutMs = 30000;
-        private const int WriteTimeoutMs = 30000;
+        private static int ConnectTimeoutMs => ClientConfig.Settings.Network.ConnectTimeoutMs;
+        private static int ReadTimeoutMs => ClientConfig.Settings.Network.ReadTimeoutMs;
+        private static int WriteTimeoutMs => ClientConfig.Settings.Network.WriteTimeoutMs;
 
         private TcpClient? _client;
         private NetworkStream? _stream;

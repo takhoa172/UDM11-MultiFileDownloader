@@ -22,12 +22,24 @@ namespace Client
         private readonly BindingList<FileItem> _serverFiles = new BindingList<FileItem>();
         private readonly BindingList<FileItem> _downloadFiles = new BindingList<FileItem>();
 
-        private readonly DownloadManager _downloadManager = new DownloadManager(3);
+        private readonly DownloadManager _downloadManager =
+            new DownloadManager(ClientConfig.Settings.Download.MaxConcurrentDownloads);
         private string _serverIp = "";
         private int _serverPort = 0;
 
-        private string _downloadFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        private string _downloadFolder = ResolveSaveFolder();
+
+        private static string ResolveSaveFolder()
+        {
+            string configured = ClientConfig.Settings.Download.SaveFolder;
+
+            if (!string.IsNullOrWhiteSpace(configured))
+                return configured;
+
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Downloads");
+        }
 
         private bool _isSelecting = false;
         private Point _selectStartPoint;
@@ -640,6 +652,11 @@ namespace Client
                     item.Status = DownloadStatus.Downloading;
             });
 
+            FileConflictMode conflictMode =
+                Enum.TryParse(ClientConfig.Settings.Download.ConflictMode, true, out FileConflictMode parsedMode)
+                    ? parsedMode
+                    : FileConflictMode.AutoRename;
+
             DownloadResult result = await _downloadManager.StartDownloadAsync(
                 item.FileName,
                 item.FileSizeBytes,
@@ -647,7 +664,7 @@ namespace Client
                 _serverPort,
                 _downloadFolder,
                 progress,
-                FileConflictMode.AutoRename);
+                conflictMode);
 
             switch (result.Status)
             {
