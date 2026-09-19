@@ -2,13 +2,13 @@
 
 public static class ServerConfig
 {
-    // Cau hinh doc tu appsettings.json (co gia tri mac dinh neu thieu file).
     public static ServerSettings Settings { get; } = ServerSettings.Load();
 
     public static int Port => Settings.Server.Port;
     public static int ReadTimeoutMs => Settings.Timeout.ReadMs;
     public static int WriteTimeoutMs => Settings.Timeout.WriteMs;
     public static int BufferSize => Settings.Transfer.BufferSize;
+    public static long TotalBytesPerSecond => Settings.RateLimit.TotalBytesPerSecond;
 
     public static readonly RateLimiter DownloadLimiter =
         new RateLimiter(Settings.RateLimit.BytesPerSecond, Settings.RateLimit.MaxBurstBytes);
