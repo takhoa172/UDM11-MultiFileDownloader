@@ -1,43 +1,63 @@
+using System;
+using System.IO;
 using System.Text.Json;
 
-namespace Client;
-
-public sealed class ClientSettings
+namespace Client
 {
-    public DownloadSection Download { get; set; } = new();
-    public NetworkSection Network { get; set; } = new();
-
-    public static ClientSettings Load()
+    public sealed class ClientSettings
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        public DownloadSection Download { get; set; } = new();
+        public NetworkSection Network { get; set; } = new();
 
-        if (!File.Exists(path))
-            return new ClientSettings();
+        private static readonly string SettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
-        try
+        public static ClientSettings Load()
         {
-            return JsonSerializer.Deserialize<ClientSettings>(
-                       File.ReadAllText(path),
-                       new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                   ?? new ClientSettings();
+            if (!File.Exists(SettingsPath))
+                return new ClientSettings();
+
+            try
+            {
+                return JsonSerializer.Deserialize<ClientSettings>(
+                           File.ReadAllText(SettingsPath),
+                           new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                       ?? new ClientSettings();
+            }
+            catch
+            {
+                return new ClientSettings();
+            }
         }
-        catch
+
+        public void Save()
         {
-            return new ClientSettings();
+            try
+            {
+                string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+                File.WriteAllText(SettingsPath, json);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Lỗi khi lưu ClientSettings: {ex.Message}");
+            }
         }
     }
-}
 
-public sealed class DownloadSection
-{
-    public int MaxConcurrentDownloads { get; set; } = 3;
-    public string ConflictMode { get; set; } = "AutoRename";
-    public string SaveFolder { get; set; } = "";
-}
+    public sealed class DownloadSection
+    {
+        public int MaxConcurrentDownloads { get; set; } = 3; // Giới hạn 1 đến 5 file đồng thời
+        public string ConflictMode { get; set; } = "AutoRename";
+        public string SaveFolder { get; set; } = "";
+    }
 
-public sealed class NetworkSection
-{
-    public int ConnectTimeoutMs { get; set; } = 5000;
-    public int ReadTimeoutMs { get; set; } = 30000;
-    public int WriteTimeoutMs { get; set; } = 30000;
+    public sealed class NetworkSection
+    {
+        public int RequestedRateMBps { get; set; } = 5; // Tùy chọn tốc độ 1, 5, hoặc 10 MB/s
+        public int ConnectTimeoutMs { get; set; } = 5000;
+        public int ReadTimeoutMs { get; set; } = 30000;
+        public int WriteTimeoutMs { get; set; } = 30000;
+    }
 }
