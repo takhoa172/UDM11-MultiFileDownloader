@@ -12,44 +12,40 @@ public enum PacketCommand
     ERROR_RESP,
     PING,
     PONG,
-    LOGIN,
     REGISTER,
-    FORGOT_PASSWORD,
-    RESET_PASSWORD,
+    LOGIN,
     CHANGE_PASSWORD,
     AUTH_RESP,
     UPLOAD_REQ,
     UPLOAD_CHUNK,
     UPLOAD_DONE,
-    DELETE_REQ,
-    RENAME_REQ,
-    SET_SPEED,
-    DELETE_FILE,
     RENAME_FILE,
+    DELETE_FILE,
     SET_RATE_LIMIT,
-    SETTING_RESP
+    SETTING_RESP,
+    FORGOT_PASSWORD,
+    RESET_PASSWORD
 }
 
 public sealed class ProtocolPacket
 {
     public PacketCommand Command { get; set; }
     public string? FileName { get; set; }
-    public string? NewFileName { get; set; }
     public string? Username { get; set; }
-    public string? Password { get; set; }
     public string? PasswordHash { get; set; }
     public string? NewPasswordHash { get; set; }
+    public string? Password { get; set; }
+    public string? NewFileName { get; set; }
+    public string? Token { get; set; }
     public string? ErrorCode { get; set; }
     public string? Message { get; set; }
     public string? DataBase64 { get; set; }
-    public string? Token { get; set; }
     public bool Success { get; set; }
+    public long RequestedRateBytesPerSecond { get; set; }
     public bool IsLastChunk { get; set; } = true;
+    public long SpeedLimitMBs { get; set; }
     public string? FileHash { get; set; }
     public long TotalSize { get; set; }
-    public long Offset { get; set; }
-    public long? SpeedLimitMBs { get; set; }
-    public long RequestedRateBytesPerSecond { get; set; }
     public int ChunkIndex { get; set; }
     public int TotalChunks { get; set; }
 }
@@ -69,7 +65,6 @@ public static class PacketHelper
         string json = JsonSerializer.Serialize(packet, JsonOptions);
         return Encoding.UTF8.GetBytes(json + "\n");
     }
-
     public static string EncodeToString(ProtocolPacket packet)
     {
         ArgumentNullException.ThrowIfNull(packet);
@@ -88,13 +83,13 @@ public static class PacketHelper
     {
         if (string.IsNullOrWhiteSpace(data))
         {
-            throw new InvalidDataException("Gói tin rỗng.");
+            throw new InvalidDataException("Goi tin rong.");
         }
 
         ProtocolPacket? packet = JsonSerializer.Deserialize<ProtocolPacket>(data.Trim(), JsonOptions);
         if (packet is null)
         {
-            throw new InvalidDataException("Không đọc được gói tin.");
+            throw new InvalidDataException("Khong doc duoc goi tin.");
         }
 
         return packet;

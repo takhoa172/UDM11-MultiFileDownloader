@@ -53,7 +53,7 @@ namespace Client
 
                 ProtocolPacket response = await _networkService.ReadPacketAsync();
 
-                if (response.Command == PacketCommand.PONG)
+                if (response.Command == PacketCommand.AUTH_RESP)
                 {
                     LoggedInUsername = username;
                     DialogResult = DialogResult.OK;

@@ -35,6 +35,7 @@ namespace Client.Logic
         {
             _settings = ClientSettings.Load();
 
+            // Ưu tiên đọc cấu hình từ SettingPage, giới hạn 1-5 file
             int maxConcurrent = Math.Clamp(_settings.Download.MaxConcurrentDownloads, 1, 5);
             _semaphore = new SemaphoreSlim(maxConcurrent);
         }
@@ -43,7 +44,7 @@ namespace Client.Logic
             string fileName,
             long totalBytes,
             long downloadedBytes,
-            string existingPartPath,
+            string savedPath,
             string serverIp,
             int serverPort,
             string saveDirectory,
@@ -59,41 +60,12 @@ namespace Client.Logic
             try
             {
                 Directory.CreateDirectory(saveDirectory);
+                filePath = FileConflictManager.ResolveTargetPath(saveDirectory, fileName, conflictMode);
 
-                string? partPath = existingPartPath;
-                bool isResume = false;
-
-                if (!string.IsNullOrEmpty(partPath) && File.Exists(partPath))
+                if (filePath == null)
                 {
-                    long partLength = new FileInfo(partPath).Length;
-                    isResume = partLength > 0;
-                    downloadedBytes = partLength;
-                    filePath = Path.Combine(saveDirectory, fileName);
-                }
-                else
-                {
-                    filePath = FileConflictManager.ResolveTargetPath(
-                        saveDirectory, fileName, conflictMode);
-
-                    if (filePath == null)
-                    {
-                        progress?.Report(new DownloadProgressModel
-                        {
-                            FileName = fileName,
-                            Percentage = 100,
-                            SpeedInfo = "Skipped"
-                        });
-
-                        return new DownloadResult
-                        {
-                            Status = DownloadStatusResult.Skipped,
-                            Message = "File đã tồn tại (bỏ qua)."
-                        };
-                    }
-
-                    partPath = filePath + ".part";
-                    downloadedBytes = 0;
-                    TryDeleteFile(partPath);
+                    progress?.Report(new DownloadProgressModel { FileName = fileName, Percentage = 100, SpeedInfo = "Skipped" });
+                    return new DownloadResult { Status = DownloadStatusResult.Skipped, Message = "File đã tồn tại (bỏ qua)." };
                 }
 
                 using var client = new TcpClient();
@@ -106,23 +78,14 @@ namespace Client.Logic
                 await writer.WriteLineAsync(PacketHelper.EncodeToString(new ProtocolPacket
                 {
                     Command = PacketCommand.DOWNLOAD_REQ,
-                    FileName = fileName,
-                    Offset = downloadedBytes
+                    FileName = fileName
                 }));
 
-                long totalDownloaded = downloadedBytes;
+                long currentDownloadedBytes = downloadedBytes;
                 long lastReportMs = 0;
                 string? errorMessage = null;
 
-                FileMode mode = isResume ? FileMode.Append : FileMode.Create;
-
-                using (var fileStream = new FileStream(
-                    partPath,
-                    mode,
-                    FileAccess.Write,
-                    FileShare.None,
-                    bufferSize: 8192,
-                    useAsync: true))
+                using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 8192, useAsync: true))
                 {
                     while (true)
                     {
@@ -133,9 +96,7 @@ namespace Client.Logic
 
                         if (packet.Command == PacketCommand.ERROR_RESP)
                         {
-                            errorMessage = packet.Message
-                                           ?? packet.ErrorCode
-                                           ?? "Lỗi không xác định.";
+                            errorMessage = packet.Message ?? packet.ErrorCode ?? "Lỗi không xác định.";
                             break;
                         }
 
@@ -149,81 +110,47 @@ namespace Client.Logic
                             byte[] chunk = Convert.FromBase64String(packet.DataBase64);
                             await fileStream.WriteAsync(chunk, 0, chunk.Length);
 
-                            totalDownloaded += chunk.Length;
-
-                            if (packet.TotalSize > 0)
-                                totalBytes = packet.TotalSize;
+                            currentDownloadedBytes += chunk.Length;
+                            if (packet.TotalSize > 0) totalBytes = packet.TotalSize;
 
                             long now = stopwatch.ElapsedMilliseconds;
                             if (now - lastReportMs >= 200 || packet.IsLastChunk)
                             {
                                 lastReportMs = now;
-
-                                int percentage = totalBytes > 0
-                                    ? (int)((double)totalDownloaded / totalBytes * 100)
-                                    : 0;
-
-                                if (percentage > 100)
-                                    percentage = 100;
+                                int percentage = totalBytes > 0 ? (int)((double)currentDownloadedBytes / totalBytes * 100) : 0;
+                                if (percentage > 100) percentage = 100;
 
                                 double elapsed = stopwatch.Elapsed.TotalSeconds;
-                                double speedMBps = elapsed > 0
-                                    ? (totalDownloaded / elapsed) / (1024 * 1024)
-                                    : 0;
+                                double speedMBps = elapsed > 0 ? (currentDownloadedBytes / elapsed) / (1024 * 1024) : 0;
 
                                 progress?.Report(new DownloadProgressModel
                                 {
                                     FileName = Path.GetFileName(filePath),
                                     Percentage = percentage,
                                     SpeedInfo = $"{speedMBps:F2} MB/s",
-                                    DownloadedBytes = totalDownloaded
+                                    DownloadedBytes = currentDownloadedBytes
                                 });
                             }
                         }
-
                         if (packet.IsLastChunk) break;
                     }
                 }
 
                 if (errorMessage != null)
                 {
-                    TryDeleteFile(partPath);
-                    return new DownloadResult
-                    {
-                        Status = DownloadStatusResult.Error,
-                        Message = errorMessage
-                    };
+                    TryDeleteFile(filePath);
+                    return new DownloadResult { Status = DownloadStatusResult.Error, Message = errorMessage };
                 }
 
-                bool hashOk = await FileIntegrityVerifier
-                    .VerifyFileAndDeleteIfCorruptAsync(partPath, expectedHash);
+                bool hashOk = await FileIntegrityVerifier.VerifyFileAndDeleteIfCorruptAsync(filePath, expectedHash);
+                if (!hashOk) return new DownloadResult { Status = DownloadStatusResult.Error, Message = "File hỏng: hash không khớp." };
 
-                if (!hashOk)
-                {
-                    TryDeleteFile(partPath);
-                    return new DownloadResult
-                    {
-                        Status = DownloadStatusResult.Error,
-                        Message = "File hỏng: hash không khớp."
-                    };
-                }
-
-                File.Move(partPath, filePath);
-
-                return new DownloadResult
-                {
-                    Status = DownloadStatusResult.Completed,
-                    SavedPath = filePath
-                };
+                return new DownloadResult { Status = DownloadStatusResult.Completed, SavedPath = filePath };
             }
             catch (Exception ex)
             {
                 TryDeleteFile(filePath);
-                return new DownloadResult
-                {
-                    Status = DownloadStatusResult.Error,
-                    Message = ex.Message
-                };
+                return new DownloadResult { Status = DownloadStatusResult.Error, Message = ex.Message };
             }
             finally
             {

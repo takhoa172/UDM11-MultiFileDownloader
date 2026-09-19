@@ -35,8 +35,7 @@ namespace Client
             {
                 string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
                 {
-                    WriteIndented = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    WriteIndented = true
                 });
                 File.WriteAllText(SettingsPath, json);
             }
@@ -50,14 +49,14 @@ namespace Client
     public sealed class DownloadSection
     {
         public int MaxConcurrentDownloads { get; set; } = 3;
-        public long SpeedLimitMBs { get; set; } = 5;
         public string ConflictMode { get; set; } = "AutoRename";
         public string SaveFolder { get; set; } = "";
+        public long SpeedLimitMBs { get; set; } = 5;
     }
 
     public sealed class NetworkSection
     {
-        public int RequestedRateMBps { get; set; } = 5;
+        public int RequestedRateMBps { get; set; } = 5; // Tùy chọn tốc độ 1, 5, hoặc 10 MB/s
         public int ConnectTimeoutMs { get; set; } = 5000;
         public int ReadTimeoutMs { get; set; } = 30000;
         public int WriteTimeoutMs { get; set; } = 30000;

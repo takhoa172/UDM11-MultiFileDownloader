@@ -320,7 +320,7 @@ namespace Client
             {
                 await _networkService.SendPacketAsync(new ProtocolPacket
                 {
-                    Command = PacketCommand.SET_SPEED,
+                    Command = PacketCommand.SET_RATE_LIMIT,
                     SpeedLimitMBs = speedMBs
                 });
 
@@ -462,7 +462,7 @@ namespace Client
             {
                 await _networkService.SendPacketAsync(new ProtocolPacket
                 {
-                    Command = PacketCommand.RENAME_REQ,
+                    Command = PacketCommand.RENAME_FILE,
                     FileName = oldName,
                     NewFileName = newName
                 });
@@ -549,7 +549,7 @@ namespace Client
 
                     await _networkService.SendPacketAsync(new ProtocolPacket
                     {
-                        Command = PacketCommand.DELETE_REQ,
+                        Command = PacketCommand.DELETE_FILE,
                         FileName = fileName
                     });
 

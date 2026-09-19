@@ -60,7 +60,7 @@ namespace Client
 
                 ProtocolPacket response = await _networkService.ReadPacketAsync();
 
-                if (response.Command == PacketCommand.PONG)
+                if (response.Command == PacketCommand.AUTH_RESP)
                 {
                     MessageBox.Show(response.Message ?? "Đăng ký thành công!",
                         "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
