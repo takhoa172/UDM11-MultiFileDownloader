@@ -295,6 +295,9 @@ static async Task ProcessRequestAsync(
             case PacketCommand.REGISTER:
             case PacketCommand.LOGIN:
             case PacketCommand.CHANGE_PASSWORD:
+                await AuthHandler.HandleAsync(stream, request);
+                break;
+
             case PacketCommand.UPLOAD_REQ:
             case PacketCommand.UPLOAD_CHUNK:
             case PacketCommand.UPLOAD_DONE:

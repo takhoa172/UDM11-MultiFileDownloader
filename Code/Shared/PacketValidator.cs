@@ -29,6 +29,16 @@ public static class PacketValidator
                 return null;
             case PacketCommand.DOWNLOAD_REQ:
                 return ValidateFileName(packet.FileName);
+            case PacketCommand.REGISTER:
+            case PacketCommand.LOGIN:
+            case PacketCommand.CHANGE_PASSWORD:
+            case PacketCommand.UPLOAD_REQ:
+            case PacketCommand.UPLOAD_CHUNK:
+            case PacketCommand.UPLOAD_DONE:
+            case PacketCommand.RENAME_FILE:
+            case PacketCommand.DELETE_FILE:
+            case PacketCommand.SET_RATE_LIMIT:
+                return null;
             default:
                 return "400_BAD_COMMAND";
         }
