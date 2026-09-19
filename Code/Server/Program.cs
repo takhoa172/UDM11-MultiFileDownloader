@@ -289,6 +289,21 @@ static async Task ProcessRequestAsync(
                     break;
                 }
 
+            // Protocol & dispatch foundation owned by Nguyen Duc Duy.
+            // Feature handlers are implemented by the corresponding owners
+            // and will be connected here when their branches are merged.
+            case PacketCommand.REGISTER:
+            case PacketCommand.LOGIN:
+            case PacketCommand.CHANGE_PASSWORD:
+            case PacketCommand.UPLOAD_REQ:
+            case PacketCommand.UPLOAD_CHUNK:
+            case PacketCommand.UPLOAD_DONE:
+            case PacketCommand.RENAME_FILE:
+            case PacketCommand.DELETE_FILE:
+            case PacketCommand.SET_RATE_LIMIT:
+                await SendFeatureUnavailableAsync(stream, request.Command);
+                break;
+
             default:
                 await SendPacketAsync(
                     stream,
@@ -328,6 +343,20 @@ static async Task ProcessRequestAsync(
         {
         }
     }
+}
+
+static async Task SendFeatureUnavailableAsync(
+    NetworkStream stream,
+    PacketCommand command)
+{
+    await SendPacketAsync(
+        stream,
+        new ProtocolPacket
+        {
+            Command = PacketCommand.ERROR_RESP,
+            ErrorCode = "501_NOT_IMPLEMENTED",
+            Message = $"Module xu ly lenh {command} chua duoc ket noi."
+        });
 }
 
 // ─────────────────────────────────────────────────────────────
