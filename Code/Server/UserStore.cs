@@ -1,157 +1,74 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
 using Shared;
 
-namespace Server
+namespace Server;
+
+public sealed class UserAccount
 {
-    public sealed class UserAccount
+    public string Username { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
+    public string Salt { get; set; } = "";
+}
+
+public static class UserStore
+{
+    private static readonly object SyncLock = new();
+    private static string FilePath => Path.Combine(ServerConfig.ProjectRoot, "users.json");
+
+    public static bool Register(string username, string password)
     {
-        public string Username { get; set; } = "";
-        public string PasswordHash { get; set; } = "";
-        public string Salt { get; set; } = "";
-        public long SpeedLimitMBs { get; set; } = 5;
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            return false;
+
+        List<UserAccount> users = LoadUsers();
+
+        if (users.Any(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        string salt = PasswordHasher.GenerateSalt();
+
+        users.Add(new UserAccount
+        {
+            Username = username.Trim(),
+            Salt = salt,
+            PasswordHash = PasswordHasher.HashPassword(password, salt)
+        });
+
+        SaveUsers(users);
+        return true;
     }
 
-    public static class UserStore
+    public static bool ValidateLogin(string username, string password)
     {
-        private static readonly object _lock = new();
+        UserAccount? user = LoadUsers().FirstOrDefault(u =>
+            string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
 
-        private static string FilePath =>
-            Path.Combine(AppContext.BaseDirectory, "users.json");
+        if (user == null || string.IsNullOrEmpty(user.Salt))
+            return false;
 
-        private static readonly JsonSerializerOptions JsonOptions = new()
-        {
-            WriteIndented = true
-        };
+        return PasswordHasher.Verify(password, user.Salt, user.PasswordHash);
+    }
 
-        public static bool Register(string username, string password)
-        {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-                return false;
+    public static bool ChangePassword(string username, string newPassword)
+    {
+        List<UserAccount> users = LoadUsers();
 
-            lock (_lock)
-            {
-                try
-                {
-                    var users = LoadUsers();
+        UserAccount? user = users.FirstOrDefault(u =>
+            string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
 
-                    if (users.Any(u =>
-                        u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        return false;
-                    }
+        if (user == null)
+            return false;
 
-                    string salt = PasswordHasher.GenerateSalt();
+        user.Salt = PasswordHasher.GenerateSalt();
+        user.PasswordHash = PasswordHasher.HashPassword(newPassword, user.Salt);
 
-                    users.Add(new UserAccount
-                    {
-                        Username = username.Trim(),
-                        Salt = salt,
-                        PasswordHash = PasswordHasher.HashPassword(password, salt)
-                    });
+        SaveUsers(users);
+        return true;
+    }
 
-                    SaveUsers(users);
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-        }
-
-        public static bool ValidateLogin(string username, string password)
-        {
-            lock (_lock)
-            {
-                var users = LoadUsers();
-
-                var user = users.FirstOrDefault(u =>
-                    u.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-
-                if (user == null || string.IsNullOrEmpty(user.Salt))
-                    return false;
-
-                return PasswordHasher.Verify(password, user.Salt, user.PasswordHash);
-            }
-        }
-
-        public static bool ChangePassword(string username, string newPassword)
-        {
-            lock (_lock)
-            {
-                try
-                {
-                    var users = LoadUsers();
-
-                    var user = users.FirstOrDefault(u =>
-                        u.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-
-                    if (user == null)
-                        return false;
-
-                    user.Salt = PasswordHasher.GenerateSalt();
-                    user.PasswordHash = PasswordHasher.HashPassword(newPassword, user.Salt);
-
-                    SaveUsers(users);
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-        }
-
-        public static List<UserAccount> LoadUsersForCheck()
-        {
-            lock (_lock)
-            {
-                return LoadUsers();
-            }
-        }
-
-        public static long GetSpeedLimit(string username)
-        {
-            lock (_lock)
-            {
-                var users = LoadUsers();
-                var user = users.FirstOrDefault(u =>
-                    u.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-                return user?.SpeedLimitMBs ?? 5;
-            }
-        }
-
-        public static (bool Success, string Message) SetSpeedLimit(
-            string username, long speedMBs)
-        {
-            lock (_lock)
-            {
-                try
-                {
-                    var users = LoadUsers();
-                    var user = users.FirstOrDefault(u =>
-                        u.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-
-                    if (user == null)
-                        return (false, "Tên tài khoản không tồn tại.");
-
-                    user.SpeedLimitMBs = speedMBs;
-                    SaveUsers(users);
-
-                    return (true, $"Đã đặt tốc độ tải {speedMBs} MB/s.");
-                }
-                catch (Exception ex)
-                {
-                    return (false, $"Lỗi server: {ex.Message}");
-                }
-            }
-        }
-
-        private static List<UserAccount> LoadUsers()
+    private static List<UserAccount> LoadUsers()
+    {
+        lock (SyncLock)
         {
             if (!File.Exists(FilePath))
                 return new List<UserAccount>();
@@ -161,13 +78,17 @@ namespace Server
             if (string.IsNullOrWhiteSpace(json))
                 return new List<UserAccount>();
 
-            return JsonSerializer.Deserialize<List<UserAccount>>(json, JsonOptions)
-                   ?? new List<UserAccount>();
+            return JsonSerializer.Deserialize<List<UserAccount>>(json) ?? new List<UserAccount>();
         }
+    }
 
-        private static void SaveUsers(List<UserAccount> users)
+    private static void SaveUsers(List<UserAccount> users)
+    {
+        lock (SyncLock)
         {
-            string json = JsonSerializer.Serialize(users, JsonOptions);
+            string json = JsonSerializer.Serialize(users,
+                new JsonSerializerOptions { WriteIndented = true });
+
             File.WriteAllText(FilePath, json);
         }
     }

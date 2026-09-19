@@ -1,5 +1,6 @@
 using System;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Shared;
@@ -88,8 +89,7 @@ namespace Client.Pages
                 await _networkService.SendPacketAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.CHANGE_PASSWORD,
-                    Password = currentPass,
-                    NewPasswordHash = newPass
+                    NewPasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(newPass))
                 });
 
                 ProtocolPacket response = await _networkService.ReadPacketAsync();

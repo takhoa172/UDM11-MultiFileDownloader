@@ -11,12 +11,12 @@ namespace Shared
         {
             if (string.IsNullOrWhiteSpace(filePath))
             {
-                throw new ArgumentException("Error: Đường dẫn file không được để trống", nameof(filePath));
+                throw new ArgumentException("Error: Duong dan file khong duoc trong", nameof(filePath));
             }
 
             if (!File.Exists(filePath))
             {
-                throw new FileNotFoundException("Error: Không thể tìm thấy file", filePath);
+                throw new FileNotFoundException("Error: Khong the tim thay file", filePath);
             }
 
             await using var fileStream = new FileStream

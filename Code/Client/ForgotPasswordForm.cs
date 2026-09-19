@@ -1,5 +1,6 @@
 using System;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Shared;
@@ -18,7 +19,7 @@ namespace Client
             txtUsername.Focus();
         }
 
-        private async void btnSubmit_Click(object? sender, EventArgs e)
+        private void btnSubmit_Click(object? sender, EventArgs e)
         {
             lblError.Text = "";
 
@@ -31,46 +32,8 @@ namespace Client
                 return;
             }
 
-            try
-            {
-                btnSubmit.Enabled = false;
-                btnSubmit.Text = "Đang xác nhận...";
-
-                await _networkService.SendPacketAsync(new ProtocolPacket
-                {
-                    Command = PacketCommand.FORGOT_PASSWORD,
-                    Username = username
-                });
-
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
-
-                if (response.Command == PacketCommand.PONG)
-                {
-                    _verifiedUsername = username;
-                    ShowStep2();
-                }
-                else
-                {
-                    lblError.Text = response.Message ?? "Xác nhận thất bại.";
-                }
-            }
-            catch (SocketException)
-            {
-                lblError.Text = "Mất kết nối Server.";
-            }
-            catch (OperationCanceledException)
-            {
-                lblError.Text = "Hết thời gian yêu cầu.";
-            }
-            catch (Exception ex)
-            {
-                lblError.Text = $"Lỗi: {ex.Message}";
-            }
-            finally
-            {
-                btnSubmit.Enabled = true;
-                btnSubmit.Text = "Xác nhận";
-            }
+            _verifiedUsername = username;
+            ShowStep2();
         }
 
         private void ShowStep2()
@@ -115,14 +78,14 @@ namespace Client
 
                 await _networkService.SendPacketAsync(new ProtocolPacket
                 {
-                    Command = PacketCommand.RESET_PASSWORD,
+                    Command = PacketCommand.CHANGE_PASSWORD,
                     Username = _verifiedUsername,
-                    Password = newPassword
+                    NewPasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(newPassword))
                 });
 
                 ProtocolPacket response = await _networkService.ReadPacketAsync();
 
-                if (response.Command == PacketCommand.PONG)
+                if (response.Command == PacketCommand.AUTH_RESP && response.Success)
                 {
                     MessageBox.Show(response.Message ?? "Đặt lại mật khẩu thành công!",
                         "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);

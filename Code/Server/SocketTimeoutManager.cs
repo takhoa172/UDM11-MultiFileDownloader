@@ -4,6 +4,9 @@ namespace Server;
 
 public static class SocketTimeoutManager
 {
+    public const int DefaultReadTimeoutMs = 30000;
+    public const int DefaultWriteTimeoutMs = 30000;
+
     public static void Apply(TcpClient client, int readMs, int writeMs)
     {
         client.ReceiveTimeout = readMs;

@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Diagnostics;
-using System.IO;
 using Shared;
 using Server;
 
@@ -39,7 +38,7 @@ if (args.Length > 0 && args[0] == "--speedtest")
         sw.Elapsed.TotalSeconds;
 
     Console.WriteLine(
-        $"--- Speed test: {mbps:F2} MB/s (giới hạn 5 MB/s) ---");
+        $"--- Speed test: {mbps:F2} MB/s (gioi han 5 MB/s) ---");
 
     return;
 }
@@ -65,8 +64,8 @@ static async Task HandleClientAsync(TcpClient client)
         client.Client.RemoteEndPoint?.ToString() ?? "unknown";
 
     bool connectionCounted = false;
+
     bool isMainConnection = false;
-    string? connectedUsername = null;
 
     try
     {
@@ -94,7 +93,7 @@ static async Task HandleClientAsync(TcpClient client)
                 catch (OperationCanceledException)
                 {
                     ServerLogger.LogWarning(
-                        $"[{clientIp}] Timeout khi cho Server nhận request.");
+                        $"[{clientIp}] Timeout khi cho Server nhan request.");
 
                     break;
                 }
@@ -109,7 +108,7 @@ static async Task HandleClientAsync(TcpClient client)
                 if (rawError != null)
                 {
                     ServerLogger.LogWarning(
-                        $"[{clientIp}] Gói tin bị từ chối ({rawError})");
+                        $"[{clientIp}] Goi tin bi tu choi ({rawError})");
 
                     await SendPacketAsync(
                         stream,
@@ -117,7 +116,7 @@ static async Task HandleClientAsync(TcpClient client)
                         {
                             Command = PacketCommand.ERROR_RESP,
                             ErrorCode = rawError,
-                            Message = "Gói tin không hợp lệ"
+                            Message = "Goi tin khong hop le"
                         });
 
                     continue;
@@ -132,7 +131,7 @@ static async Task HandleClientAsync(TcpClient client)
                 catch (Exception ex)
                 {
                     ServerLogger.LogWarning(
-                        $"[{clientIp}] Gói tin sai định dạng: {ex.Message}");
+                        $"[{clientIp}] Goi tin sai dinh dang: {ex.Message}");
 
                     await SendPacketAsync(
                         stream,
@@ -140,7 +139,7 @@ static async Task HandleClientAsync(TcpClient client)
                         {
                             Command = PacketCommand.ERROR_RESP,
                             ErrorCode = "400_BAD_REQUEST",
-                            Message = "Gói tin không hợp lệ."
+                            Message = "Goi tin khong hop le."
                         });
 
                     continue;
@@ -151,7 +150,7 @@ static async Task HandleClientAsync(TcpClient client)
                 if (reqError != null)
                 {
                     ServerLogger.LogWarning(
-                        $"[{clientIp}] Lệnh không hợp lệ ({reqError})");
+                        $"[{clientIp}] Lenh khong hop le ({reqError})");
 
                     await SendPacketAsync(
                         stream,
@@ -159,7 +158,7 @@ static async Task HandleClientAsync(TcpClient client)
                         {
                             Command = PacketCommand.ERROR_RESP,
                             ErrorCode = reqError,
-                            Message = "Lệnh không hợp lệ"
+                            Message = "Lenh khong hop le"
                         });
 
                     continue;
@@ -168,11 +167,9 @@ static async Task HandleClientAsync(TcpClient client)
                 if (!connectionCounted)
                 {
                     connectionCounted = true;
-                    if (request.Command == PacketCommand.DOWNLOAD_REQ)
-                    {
-                        isMainConnection = false;
-                    }
-                    else
+
+
+                    if (request.Command == PacketCommand.GET_LIST)
                     {
                         isMainConnection = true;
                         ServerLogger.ClientConnected(clientIp, silent: false);
@@ -182,32 +179,32 @@ static async Task HandleClientAsync(TcpClient client)
                 if (request.Command != PacketCommand.PING)
                 {
                     ServerLogger.LogInfo(
-                        $"[{clientIp}] Nhận lệnh {request.Command}");
+                        $"[{clientIp}] Nhan lenh {request.Command}");
                 }
 
-                connectedUsername = await ProcessRequestAsync(stream, request, clientIp, reader, connectedUsername);
+                await ProcessRequestAsync(stream, request, clientIp);
             }
         }
     }
     catch (IOException ex)
     {
         ServerLogger.LogError(
-            $"[{clientIp}] Mất kết nối: {ex.Message}");
+            $"[{clientIp}] Mat ket noi: {ex.Message}");
     }
     catch (SocketException ex)
     {
         ServerLogger.LogError(
-            $"[{clientIp}] Lỗi socket: {ex.Message}");
+            $"[{clientIp}] Loi socket: {ex.Message}");
     }
     catch (OperationCanceledException)
     {
         ServerLogger.LogWarning(
-            $"[{clientIp}] Tác vụ bị timeout.");
+            $"[{clientIp}] Tac vu bi timeout.");
     }
     catch (Exception ex)
     {
         ServerLogger.LogError(
-            $"[{clientIp}] Lỗi xử lý client: {ex.Message}");
+            $"[{clientIp}] Loi xu ly client: {ex.Message}");
     }
     finally
     {
@@ -221,12 +218,10 @@ static async Task HandleClientAsync(TcpClient client)
 //  PROCESS REQUEST
 // ─────────────────────────────────────────────────────────────
 
-static async Task<string?> ProcessRequestAsync(
+static async Task ProcessRequestAsync(
     NetworkStream stream,
     ProtocolPacket request,
-    string clientIp,
-    StreamReader mainReader,
-    string? connectedUsername)
+    string clientIp)
 {
     try
     {
@@ -246,7 +241,7 @@ static async Task<string?> ProcessRequestAsync(
             case PacketCommand.DOWNLOAD_REQ:
                 {
                     ServerLogger.LogInfo(
-                        $"[{clientIp}] Yêu cầu tải file: {request.FileName}");
+                        $"[{clientIp}] Yeu cau tai file: {request.FileName}");
 
                     if (string.IsNullOrWhiteSpace(request.FileName))
                     {
@@ -256,7 +251,7 @@ static async Task<string?> ProcessRequestAsync(
                             {
                                 Command = PacketCommand.ERROR_RESP,
                                 ErrorCode = "400_BAD_REQUEST",
-                                Message = "Tên file không hợp lệ."
+                                Message = "Ten file khong hop le."
                             });
 
                         break;
@@ -272,7 +267,7 @@ static async Task<string?> ProcessRequestAsync(
                             {
                                 Command = PacketCommand.ERROR_RESP,
                                 ErrorCode = "400_BAD_REQUEST",
-                                Message = "Tên file không hợp lệ."
+                                Message = "Ten file khong hop le."
                             });
 
                         break;
@@ -285,381 +280,32 @@ static async Task<string?> ProcessRequestAsync(
                 using CancellationTokenSource downloadCts =
                     SocketTimeoutManager.CreateLinkedCts(30 * 60 * 1000);
 
-                    RateLimiter? userLimiter = connectedUsername != null
-                        ? ServerConfig.GetUserLimiter(connectedUsername, UserStore.GetSpeedLimit(connectedUsername))
-                        : null;
-
                     await FileStreamer.StreamFileAsync(
                         stream,
                         filePath,
                         safeFileName,
-                        request.Offset,
-                        downloadCts.Token,
-                        userLimiter);
+                        downloadCts.Token);
 
                     break;
                 }
 
-            case PacketCommand.LOGIN:
+            // Protocol & dispatch foundation owned by Nguyen Duc Duy.
+            // Feature handlers are implemented by the corresponding owners
+            // and will be connected here when their branches are merged.
             case PacketCommand.REGISTER:
+            case PacketCommand.LOGIN:
             case PacketCommand.CHANGE_PASSWORD:
                 await AuthHandler.HandleAsync(stream, request);
                 break;
 
-            case PacketCommand.FORGOT_PASSWORD:
-                {
-                    try
-                    {
-                        var users = UserStore.LoadUsersForCheck();
-                        var user = users.FirstOrDefault(u =>
-                            u.Username.Equals(request.Username ?? "", StringComparison.OrdinalIgnoreCase));
-
-                        if (user == null)
-                        {
-                            await SendPacketAsync(stream, new ProtocolPacket
-                            {
-                                Command = PacketCommand.ERROR_RESP,
-                                ErrorCode = "400_USER_NOT_FOUND",
-                                Message = "Tên tài khoản không tồn tại."
-                            });
-                        }
-                        else
-                        {
-                            ServerLogger.LogInfo(
-                                $"[{clientIp}] Quên mật khẩu: {request.Username} -> OK");
-                            await SendPacketAsync(stream, new ProtocolPacket
-                            {
-                                Command = PacketCommand.PONG,
-                                Message = "Tài khoản hợp lệ. Vui lòng nhập mật khẩu mới."
-                            });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.LogError(
-                            $"[{clientIp}] Lỗi xử lý quên mật khẩu: {ex.Message}");
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "500_SERVER_ERROR",
-                            Message = "Lỗi server khi xác nhận tài khoản."
-                        });
-                    }
-
-                    break;
-                }
-
-            case PacketCommand.RESET_PASSWORD:
-                {
-                    try
-                    {
-                        var result = UserStore.ChangePassword(
-                            request.Username ?? "",
-                            request.Password ?? "");
-
-                        ServerLogger.LogInfo(
-                            $"[{clientIp}] Đặt lại mật khẩu: {request.Username} -> {(result ? "OK" : "FAIL")}");
-
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = result
-                                ? PacketCommand.PONG
-                                : PacketCommand.ERROR_RESP,
-                            ErrorCode = result ? null : "400_RESET_FAILED",
-                            Message = result ? "Đặt lại mật khẩu thành công." : "Đặt lại mật khẩu thất bại."
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.LogError(
-                            $"[{clientIp}] Lỗi đặt lại mật khẩu: {ex.Message}");
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "500_SERVER_ERROR",
-                            Message = "Lỗi server khi đặt lại mật khẩu."
-                        });
-                    }
-
-                    break;
-                }
-
             case PacketCommand.UPLOAD_REQ:
-                {
-                    ServerLogger.LogInfo(
-                        $"[{clientIp}] Yêu cầu tải lên file: {request.FileName}");
-
-                    if (string.IsNullOrWhiteSpace(request.FileName))
-                    {
-                        await SendPacketAsync(
-                            stream,
-                            new ProtocolPacket
-                            {
-                                Command = PacketCommand.ERROR_RESP,
-                                ErrorCode = "400_BAD_REQUEST",
-                                Message = "Tên file không hợp lệ."
-                            });
-                        break;
-                    }
-
-                    string safeFileName = Path.GetFileName(request.FileName);
-                    string filePath = Path.Combine(
-                        ServerConfig.StoragePath, safeFileName);
-
-                    if (File.Exists(filePath))
-                    {
-                        string nameNoExt = Path.GetFileNameWithoutExtension(safeFileName);
-                        string ext = Path.GetExtension(safeFileName);
-                        int n = 1;
-                        do
-                        {
-                            safeFileName = $"{nameNoExt}({n}){ext}";
-                            filePath = Path.Combine(ServerConfig.StoragePath, safeFileName);
-                            n++;
-                        } while (File.Exists(filePath));
-
-                        ServerLogger.LogInfo(
-                            $"[{clientIp}] File trùng, đổi tên thành: {safeFileName}");
-                    }
-
-                    await SendPacketAsync(stream, new ProtocolPacket
-                    {
-                        Command = PacketCommand.PONG,
-                        FileName = safeFileName
-                    });
-
-                    try
-                    {
-                        using var fileStream = new FileStream(
-                            filePath,
-                            FileMode.Create,
-                            FileAccess.Write,
-                            FileShare.None,
-                            ServerConfig.BufferSize,
-                            useAsync: true);
-
-                        while (true)
-                        {
-                            string? chunkLine = await mainReader.ReadLineAsync();
-                            if (chunkLine == null)
-                                throw new IOException("Client đóng kết nối.");
-
-                            ProtocolPacket chunk = PacketHelper.Decode(chunkLine);
-
-                            if (!string.IsNullOrEmpty(chunk.DataBase64))
-                            {
-                                byte[] data = PacketHelper.DecodeBinaryData(chunk.DataBase64);
-                                await fileStream.WriteAsync(data, 0, data.Length);
-                            }
-
-                            if (chunk.IsLastChunk)
-                                break;
-                        }
-
-                        ServerLogger.LogInfo(
-                            $"[{clientIp}] Tải lên thành công: {safeFileName}");
-
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.PONG,
-                            Message = $"Tải lên thành công: {safeFileName}"
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.LogError(
-                            $"[{clientIp}] Lỗi tải lên: {ex.Message}");
-
-                        try
-                        {
-                            if (File.Exists(filePath))
-                                File.Delete(filePath);
-                        }
-                        catch { }
-
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "500_UPLOAD_ERROR",
-                            Message = $"Lỗi tải lên: {ex.Message}"
-                        });
-                    }
-
-                    break;
-                }
-
-            case PacketCommand.DELETE_REQ:
-                {
-                    ServerLogger.LogInfo(
-                        $"[{clientIp}] Yêu cầu xóa file: {request.FileName}");
-
-                    if (string.IsNullOrWhiteSpace(request.FileName))
-                    {
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "400_BAD_REQUEST",
-                            Message = "Tên file không hợp lệ."
-                        });
-                        break;
-                    }
-
-                    string safeFileName = Path.GetFileName(request.FileName);
-                    string filePath = Path.Combine(
-                        ServerConfig.StoragePath, safeFileName);
-
-                    if (!File.Exists(filePath))
-                    {
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "404_NOT_FOUND",
-                            Message = $"File '{safeFileName}' không tồn tại trên Server."
-                        });
-                        break;
-                    }
-
-                    try
-                    {
-                        File.Delete(filePath);
-                        ServerLogger.LogInfo(
-                            $"[{clientIp}] Đã xóa file: {safeFileName}");
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.PONG,
-                            Message = $"Đã xóa file: {safeFileName}"
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.LogError(
-                            $"[{clientIp}] Lỗi xóa file: {ex.Message}");
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "500_DELETE_ERROR",
-                            Message = $"Lỗi xóa file: {ex.Message}"
-                        });
-                    }
-
-                    break;
-                }
-
-            case PacketCommand.RENAME_REQ:
-                {
-                    ServerLogger.LogInfo(
-                        $"[{clientIp}] Yêu cầu đổi tên file: {request.FileName} -> {request.NewFileName}");
-
-                    if (string.IsNullOrWhiteSpace(request.FileName) ||
-                        string.IsNullOrWhiteSpace(request.NewFileName))
-                    {
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "400_BAD_REQUEST",
-                            Message = "Tên file không hợp lệ."
-                        });
-                        break;
-                    }
-
-                    string safeOldName = Path.GetFileName(request.FileName);
-                    string safeNewName = Path.GetFileName(request.NewFileName);
-                    string oldPath = Path.Combine(ServerConfig.StoragePath, safeOldName);
-                    string newPath = Path.Combine(ServerConfig.StoragePath, safeNewName);
-
-                    if (!File.Exists(oldPath))
-                    {
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "404_NOT_FOUND",
-                            Message = $"File '{safeOldName}' không tồn tại trên Server."
-                        });
-                        break;
-                    }
-
-                    if (File.Exists(newPath))
-                    {
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "409_CONFLICT",
-                            Message = $"File '{safeNewName}' đã tồn tại trên Server."
-                        });
-                        break;
-                    }
-
-                    try
-                    {
-                        File.Move(oldPath, newPath);
-                        ServerLogger.LogInfo(
-                            $"[{clientIp}] Đã đổi tên: {safeOldName} -> {safeNewName}");
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.PONG,
-                            Message = $"Đã đổi tên: {safeOldName} -> {safeNewName}"
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.LogError(
-                            $"[{clientIp}] Lỗi đổi tên file: {ex.Message}");
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "500_RENAME_ERROR",
-                            Message = $"Lỗi đổi tên file: {ex.Message}"
-                        });
-                    }
-
-                    break;
-                }
-
-            case PacketCommand.SET_SPEED:
-                {
-                    if (connectedUsername == null)
-                    {
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "401_UNAUTHORIZED",
-                            Message = "Vui lòng đăng nhập trước."
-                        });
-                        break;
-                    }
-
-                    try
-                    {
-                        long speedMBs = request.SpeedLimitMBs ?? 5;
-                        var result = UserStore.SetSpeedLimit(connectedUsername, speedMBs);
-
-                        ServerLogger.LogInfo(
-                            $"[{clientIp}] Đặt tốc độ tải: {connectedUsername} -> {speedMBs} MB/s");
-
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = result.Success
-                                ? PacketCommand.PONG
-                                : PacketCommand.ERROR_RESP,
-                            ErrorCode = result.Success ? null : "400_SET_SPEED_FAILED",
-                            Message = result.Message,
-                            SpeedLimitMBs = speedMBs
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.LogError(
-                            $"[{clientIp}] Lỗi đặt tốc độ tải: {ex.Message}");
-                        await SendPacketAsync(stream, new ProtocolPacket
-                        {
-                            Command = PacketCommand.ERROR_RESP,
-                            ErrorCode = "500_SERVER_ERROR",
-                            Message = "Lỗi server khi đặt tốc độ tải."
-                        });
-                    }
-
-                    break;
-                }
+            case PacketCommand.UPLOAD_CHUNK:
+            case PacketCommand.UPLOAD_DONE:
+            case PacketCommand.RENAME_FILE:
+            case PacketCommand.DELETE_FILE:
+            case PacketCommand.SET_RATE_LIMIT:
+                await SendFeatureUnavailableAsync(stream, request.Command);
+                break;
 
             default:
                 await SendPacketAsync(
@@ -668,7 +314,7 @@ static async Task<string?> ProcessRequestAsync(
                     {
                         Command = PacketCommand.ERROR_RESP,
                         ErrorCode = "400_BAD_COMMAND",
-                        Message = "Lệnh không được Server hỗ trợ."
+                        Message = "Lenh khong duoc Server ho tro."
                     });
 
                 break;
@@ -677,12 +323,12 @@ static async Task<string?> ProcessRequestAsync(
     catch (OperationCanceledException)
     {
         ServerLogger.LogWarning(
-            $"[{clientIp}] Request bị timeout hoặc bị hủy.");
+            $"[{clientIp}] Request bi timeout hoac bi huy.");
     }
     catch (Exception ex)
     {
         ServerLogger.LogError(
-            $"[{clientIp}] Lỗi xử lý request: {ex.Message}");
+            $"[{clientIp}] Loi xu ly request: {ex.Message}");
 
         try
         {
@@ -693,15 +339,27 @@ static async Task<string?> ProcessRequestAsync(
                     Command = PacketCommand.ERROR_RESP,
                     ErrorCode = "500_REQUEST_ERROR",
                     Message =
-                        "Lỗi xử lý request. Request này đã kết thúc, Server vẫn tiếp tục hoạt động."
+                        "Loi xu ly request. Request nay da ket thuc, Server van tiep tuc hoat dong."
                 });
         }
         catch
         {
         }
     }
+}
 
-    return connectedUsername;
+static async Task SendFeatureUnavailableAsync(
+    NetworkStream stream,
+    PacketCommand command)
+{
+    await SendPacketAsync(
+        stream,
+        new ProtocolPacket
+        {
+            Command = PacketCommand.ERROR_RESP,
+            ErrorCode = "501_NOT_IMPLEMENTED",
+            Message = $"Module xu ly lenh {command} chua duoc ket noi."
+        });
 }
 
 // ─────────────────────────────────────────────────────────────

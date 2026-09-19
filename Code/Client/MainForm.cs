@@ -291,7 +291,7 @@ namespace Client
             lblSettingsUsernameValue.Text = _username;
             nudConcurrentDownloads.Value = ClientConfig.Settings.Download.MaxConcurrentDownloads;
 
-            long currentSpeed = ClientConfig.Settings.Download.SpeedLimitMBs;
+            int currentSpeed = ClientConfig.Settings.Network.RequestedRateMBps;
             int speedIndex = cmbSpeedLimit.Items.IndexOf(currentSpeed.ToString());
             cmbSpeedLimit.SelectedIndex = speedIndex >= 0 ? speedIndex : 1;
         }
@@ -308,7 +308,7 @@ namespace Client
             if (cmbSpeedLimit.SelectedItem == null || !_isConnected) return;
 
             long speedMBs = long.Parse(cmbSpeedLimit.SelectedItem.ToString()!);
-            ClientConfig.Settings.Download.SpeedLimitMBs = speedMBs;
+            ClientConfig.Settings.Network.RequestedRateMBps = (int)speedMBs;
             ClientConfig.Settings.Save();
 
             _ = SendSpeedLimitAsync(speedMBs);
@@ -321,11 +321,11 @@ namespace Client
                 await _networkService.SendPacketAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.SET_RATE_LIMIT,
-                    SpeedLimitMBs = speedMBs
+                    RequestedRateBytesPerSecond = speedMBs * 1024 * 1024
                 });
 
                 ProtocolPacket response = await _networkService.ReadPacketAsync();
-                if (response.Command == PacketCommand.PONG)
+                if (response.Command == PacketCommand.SETTING_RESP)
                     SetNotification($"Đã đặt tốc độ tải: {speedMBs} MB/s", isError: false);
                 else
                     SetNotification($"Lỗi đặt tốc độ: {response.Message}", isError: true);

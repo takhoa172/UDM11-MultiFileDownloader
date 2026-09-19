@@ -22,9 +22,7 @@ public enum PacketCommand
     RENAME_FILE,
     DELETE_FILE,
     SET_RATE_LIMIT,
-    SETTING_RESP,
-    FORGOT_PASSWORD,
-    RESET_PASSWORD
+    SETTING_RESP
 }
 
 public sealed class ProtocolPacket
@@ -34,7 +32,6 @@ public sealed class ProtocolPacket
     public string? Username { get; set; }
     public string? PasswordHash { get; set; }
     public string? NewPasswordHash { get; set; }
-    public string? Password { get; set; }
     public string? NewFileName { get; set; }
     public string? Token { get; set; }
     public string? ErrorCode { get; set; }
@@ -43,7 +40,6 @@ public sealed class ProtocolPacket
     public bool Success { get; set; }
     public long RequestedRateBytesPerSecond { get; set; }
     public bool IsLastChunk { get; set; } = true;
-    public long SpeedLimitMBs { get; set; }
     public string? FileHash { get; set; }
     public long TotalSize { get; set; }
     public int ChunkIndex { get; set; }

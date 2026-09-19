@@ -1,5 +1,6 @@
 using System;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Shared;
@@ -48,12 +49,12 @@ namespace Client
                 {
                     Command = PacketCommand.LOGIN,
                     Username = username,
-                    Password = password
+                    PasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(password))
                 });
 
                 ProtocolPacket response = await _networkService.ReadPacketAsync();
 
-                if (response.Command == PacketCommand.AUTH_RESP)
+                if (response.Command == PacketCommand.AUTH_RESP && response.Success)
                 {
                     LoggedInUsername = username;
                     DialogResult = DialogResult.OK;
