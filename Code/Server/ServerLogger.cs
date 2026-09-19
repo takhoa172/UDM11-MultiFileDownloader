@@ -32,7 +32,7 @@ namespace Server
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"[LOG ERROR] Khong ghi duoc log: {e.Message}");
+                    Console.WriteLine($"[LOG ERROR] Không ghi được log: {e.Message}");
                 }
             }
         }
@@ -42,10 +42,10 @@ namespace Server
         public static void LogError(string message) => Log(message, "ERROR", ConsoleColor.Red);
 
         public static void LogDownload(string fileName, long bytes) =>
-            Log($"Tai file: {fileName} | {bytes} bytes", "DOWNLOAD", ConsoleColor.Yellow);
+            Log($"Tải file: {fileName} | {bytes} bytes", "DOWNLOAD", ConsoleColor.Yellow);
 
         public static void LogServerStart(int port) =>
-            Log($"Server khoi dong, lang nghe tai cong {port}", "INFO", ConsoleColor.Cyan);
+            Log($"Server khởi động, lắng nghe tại cổng {port}", "INFO", ConsoleColor.Cyan);
 
         //  ĐẾM CLIENT ONLINE
 
@@ -67,7 +67,7 @@ namespace Server
 
             if (!silent)
             {
-                Log($"Client ket noi: {endpoint}", "CONNECT", ConsoleColor.Green);
+                Log($"Client kết nối: {endpoint}", "CONNECT", ConsoleColor.Green);
             }
 
             PrintStatusIfChanged();
@@ -90,7 +90,7 @@ namespace Server
 
             if (!silent)
             {
-                Log($"Client ngat ket noi: {endpoint}", "DISCONNECT", ConsoleColor.DarkYellow);
+                Log($"Client ngắt kết nối: {endpoint}", "DISCONNECT", ConsoleColor.DarkYellow);
             }
 
             PrintStatusIfChanged();
@@ -125,7 +125,7 @@ namespace Server
             _lastPrintedCount = currentCount;
 
             Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"--- So client dang online: {currentCount} ---");
+            Console.WriteLine($"--- Số client đang online: {currentCount} ---");
             Console.ResetColor();
         }
     }

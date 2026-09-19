@@ -1,4 +1,6 @@
-﻿namespace Server;
+﻿using System.Collections.Concurrent;
+
+namespace Server;
 
 public static class ServerConfig
 {
@@ -12,6 +14,17 @@ public static class ServerConfig
 
     public static readonly RateLimiter DownloadLimiter =
         new RateLimiter(Settings.RateLimit.BytesPerSecond, Settings.RateLimit.MaxBurstBytes);
+
+    private static readonly ConcurrentDictionary<string, RateLimiter> _userLimiters = new();
+
+    public static RateLimiter GetUserLimiter(string username, long speedMBs)
+    {
+        long bytesPerSecond = speedMBs * 1024 * 1024;
+        return _userLimiters.AddOrUpdate(
+            username,
+            _ => new RateLimiter(bytesPerSecond, bytesPerSecond / 4),
+            (_, _) => new RateLimiter(bytesPerSecond, bytesPerSecond / 4));
+    }
 
     public static string ProjectRoot { get; } = FindProjectRoot();
 

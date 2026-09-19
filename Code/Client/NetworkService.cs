@@ -17,9 +17,6 @@ namespace Client
         private NetworkStream? _stream;
         private StreamReader? _reader;
 
-        public bool IsConnected =>
-            _client != null && _client.Connected;
-
         public Socket? ClientSocket => _client?.Client;
 
         public async Task ConnectAsync(string ip, int port)
