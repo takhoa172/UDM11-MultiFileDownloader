@@ -11,16 +11,34 @@ public enum PacketCommand
     FILE_CHUNK,
     ERROR_RESP,
     PING,
-    PONG
+    PONG,
+    REGISTER,
+    LOGIN,
+    CHANGE_PASSWORD,
+    AUTH_RESP,
+    UPLOAD_REQ,
+    UPLOAD_CHUNK,
+    UPLOAD_DONE,
+    RENAME_FILE,
+    DELETE_FILE,
+    SET_RATE_LIMIT,
+    SETTING_RESP
 }
 
 public sealed class ProtocolPacket
 {
     public PacketCommand Command { get; set; }
     public string? FileName { get; set; }
+    public string? Username { get; set; }
+    public string? PasswordHash { get; set; }
+    public string? NewPasswordHash { get; set; }
+    public string? NewFileName { get; set; }
+    public string? Token { get; set; }
     public string? ErrorCode { get; set; }
     public string? Message { get; set; }
     public string? DataBase64 { get; set; }
+    public bool Success { get; set; }
+    public long RequestedRateBytesPerSecond { get; set; }
     public bool IsLastChunk { get; set; } = true;
     public string? FileHash { get; set; }
     public long TotalSize { get; set; }
