@@ -40,6 +40,7 @@ public sealed class RateLimitSection
 {
     public long BytesPerSecond { get; set; } = 5 * 1024 * 1024;
     public long MaxBurstBytes { get; set; } = 256 * 1024;
+    public long TotalBytesPerSecond { get; set; } = 10 * 1024 * 1024;
 }
 
 public sealed class TimeoutSection

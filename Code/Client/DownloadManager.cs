@@ -11,17 +11,13 @@ namespace Client.Logic
 {
     public class DownloadProgressModel
     {
+        public string FileName { get; set; } = string.Empty;
         public int Percentage { get; set; }
         public string SpeedInfo { get; set; } = string.Empty;
         public long DownloadedBytes { get; set; }
     }
 
-    public enum DownloadStatusResult
-    {
-        Completed,
-        Skipped,
-        Error
-    }
+    public enum DownloadStatusResult { Completed, Skipped, Error }
 
     public class DownloadResult
     {
@@ -33,10 +29,14 @@ namespace Client.Logic
     public class DownloadManager
     {
         private readonly SemaphoreSlim _semaphore;
+        private readonly ClientSettings _settings;
 
-        public DownloadManager(int maxConcurrentDownloads = 3)
+        public DownloadManager(int legacyMainFormPlaceholder = 3)
         {
-            _semaphore = new SemaphoreSlim(maxConcurrentDownloads);
+            _settings = ClientSettings.Load();
+
+            int maxConcurrent = Math.Clamp(_settings.Download.MaxConcurrentDownloads, 1, 5);
+            _semaphore = new SemaphoreSlim(maxConcurrent);
         }
 
         public async Task<DownloadResult> StartDownloadAsync(
@@ -53,7 +53,6 @@ namespace Client.Logic
             await _semaphore.WaitAsync();
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-
             string? filePath = null;
             string? expectedHash = null;
 
@@ -80,6 +79,7 @@ namespace Client.Logic
                     {
                         progress?.Report(new DownloadProgressModel
                         {
+                            FileName = fileName,
                             Percentage = 100,
                             SpeedInfo = "Skipped"
                         });
@@ -127,8 +127,7 @@ namespace Client.Logic
                     while (true)
                     {
                         string? line = await reader.ReadLineAsync();
-                        if (line == null)
-                            throw new IOException("Server đóng kết nối.");
+                        if (line == null) throw new IOException("Server đóng kết nối.");
 
                         ProtocolPacket packet = PacketHelper.Decode(line);
 
@@ -140,8 +139,7 @@ namespace Client.Logic
                             break;
                         }
 
-                        if (packet.Command != PacketCommand.FILE_CHUNK)
-                            continue;
+                        if (packet.Command != PacketCommand.FILE_CHUNK) continue;
 
                         if (packet.IsLastChunk && !string.IsNullOrEmpty(packet.FileHash))
                             expectedHash = packet.FileHash;
@@ -175,6 +173,7 @@ namespace Client.Logic
 
                                 progress?.Report(new DownloadProgressModel
                                 {
+                                    FileName = Path.GetFileName(filePath),
                                     Percentage = percentage,
                                     SpeedInfo = $"{speedMBps:F2} MB/s",
                                     DownloadedBytes = totalDownloaded
@@ -182,8 +181,7 @@ namespace Client.Logic
                             }
                         }
 
-                        if (packet.IsLastChunk)
-                            break;
+                        if (packet.IsLastChunk) break;
                     }
                 }
 
@@ -220,6 +218,7 @@ namespace Client.Logic
             }
             catch (Exception ex)
             {
+                TryDeleteFile(filePath);
                 return new DownloadResult
                 {
                     Status = DownloadStatusResult.Error,
@@ -240,9 +239,7 @@ namespace Client.Logic
                 if (!string.IsNullOrEmpty(path) && File.Exists(path))
                     File.Delete(path);
             }
-            catch
-            {
-            }
+            catch { }
         }
     }
 }

@@ -2,64 +2,36 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using Shared;
 
 namespace Server
 {
-    public sealed class UserInfo
+    public sealed class UserAccount
     {
         public string Username { get; set; } = "";
         public string PasswordHash { get; set; } = "";
+        public string Salt { get; set; } = "";
         public long SpeedLimitMBs { get; set; } = 5;
     }
 
-    public sealed class UserStore
+    public static class UserStore
     {
-        private static readonly string UsersFilePath =
-            Path.Combine(AppContext.BaseDirectory, "users.json");
-
         private static readonly object _lock = new();
+
+        private static string FilePath =>
+            Path.Combine(AppContext.BaseDirectory, "users.json");
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             WriteIndented = true
         };
 
-        private static List<UserInfo> LoadUsers()
+        public static bool Register(string username, string password)
         {
-            if (!File.Exists(UsersFilePath))
-                return new List<UserInfo>();
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+                return false;
 
-            string json = File.ReadAllText(UsersFilePath);
-            return JsonSerializer.Deserialize<List<UserInfo>>(json, JsonOptions)
-                   ?? new List<UserInfo>();
-        }
-
-        public static List<UserInfo> LoadUsersForCheck()
-        {
-            lock (_lock)
-            {
-                return LoadUsers();
-            }
-        }
-
-        private static void SaveUsers(List<UserInfo> users)
-        {
-            string json = JsonSerializer.Serialize(users, JsonOptions);
-            File.WriteAllText(UsersFilePath, json);
-        }
-
-        private static string HashPassword(string password)
-        {
-            byte[] bytes = Encoding.UTF8.GetBytes(password);
-            return HashHelper.CalculateSha256(bytes);
-        }
-
-        public static (bool Success, string Message) Register(
-            string username, string password)
-        {
             lock (_lock)
             {
                 try
@@ -69,27 +41,29 @@ namespace Server
                     if (users.Any(u =>
                         u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
                     {
-                        return (false, "Tên tài khoản đã tồn tại.");
+                        return false;
                     }
 
-                    users.Add(new UserInfo
+                    string salt = PasswordHasher.GenerateSalt();
+
+                    users.Add(new UserAccount
                     {
-                        Username = username,
-                        PasswordHash = HashPassword(password)
+                        Username = username.Trim(),
+                        Salt = salt,
+                        PasswordHash = PasswordHasher.HashPassword(password, salt)
                     });
 
                     SaveUsers(users);
-                    return (true, "Đăng ký thành công.");
+                    return true;
                 }
-                catch (Exception ex)
+                catch
                 {
-                    return (false, $"Lỗi server: {ex.Message}");
+                    return false;
                 }
             }
         }
 
-        public static (bool Success, string Message) Login(
-            string username, string password)
+        public static bool ValidateLogin(string username, string password)
         {
             lock (_lock)
             {
@@ -98,18 +72,14 @@ namespace Server
                 var user = users.FirstOrDefault(u =>
                     u.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
 
-                if (user == null)
-                    return (false, "Tên tài khoản không tồn tại.");
+                if (user == null || string.IsNullOrEmpty(user.Salt))
+                    return false;
 
-                if (user.PasswordHash != HashPassword(password))
-                    return (false, "Mật khẩu không đúng.");
-
-                return (true, "Đăng nhập thành công.");
+                return PasswordHasher.Verify(password, user.Salt, user.PasswordHash);
             }
         }
 
-        public static (bool Success, string Message) ResetPassword(
-            string username, string newPassword)
+        public static bool ChangePassword(string username, string newPassword)
         {
             lock (_lock)
             {
@@ -121,17 +91,26 @@ namespace Server
                         u.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
 
                     if (user == null)
-                        return (false, "Tên tài khoản không tồn tại.");
+                        return false;
 
-                    user.PasswordHash = HashPassword(newPassword);
+                    user.Salt = PasswordHasher.GenerateSalt();
+                    user.PasswordHash = PasswordHasher.HashPassword(newPassword, user.Salt);
+
                     SaveUsers(users);
-
-                    return (true, "Đặt lại mật khẩu thành công.");
+                    return true;
                 }
-                catch (Exception ex)
+                catch
                 {
-                    return (false, $"Lỗi server: {ex.Message}");
+                    return false;
                 }
+            }
+        }
+
+        public static List<UserAccount> LoadUsersForCheck()
+        {
+            lock (_lock)
+            {
+                return LoadUsers();
             }
         }
 
@@ -170,6 +149,26 @@ namespace Server
                     return (false, $"Lỗi server: {ex.Message}");
                 }
             }
+        }
+
+        private static List<UserAccount> LoadUsers()
+        {
+            if (!File.Exists(FilePath))
+                return new List<UserAccount>();
+
+            string json = File.ReadAllText(FilePath);
+
+            if (string.IsNullOrWhiteSpace(json))
+                return new List<UserAccount>();
+
+            return JsonSerializer.Deserialize<List<UserAccount>>(json, JsonOptions)
+                   ?? new List<UserAccount>();
+        }
+
+        private static void SaveUsers(List<UserAccount> users)
+        {
+            string json = JsonSerializer.Serialize(users, JsonOptions);
+            File.WriteAllText(FilePath, json);
         }
     }
 }

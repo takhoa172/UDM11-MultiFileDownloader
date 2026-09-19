@@ -37,13 +37,21 @@ public static class PacketValidator
                 return ValidateForgotPassword(packet.Username);
             case PacketCommand.RESET_PASSWORD:
                 return ValidateResetPassword(packet.Username, packet.Password);
+            case PacketCommand.CHANGE_PASSWORD:
+                return ValidateChangePassword(packet.Username, packet.NewPasswordHash);
             case PacketCommand.UPLOAD_REQ:
                 return ValidateFileName(packet.FileName);
+            case PacketCommand.UPLOAD_CHUNK:
+            case PacketCommand.UPLOAD_DONE:
+                return null;
             case PacketCommand.DELETE_REQ:
+            case PacketCommand.DELETE_FILE:
                 return ValidateFileName(packet.FileName);
             case PacketCommand.RENAME_REQ:
+            case PacketCommand.RENAME_FILE:
                 return ValidateRename(packet.FileName, packet.NewFileName);
             case PacketCommand.SET_SPEED:
+            case PacketCommand.SET_RATE_LIMIT:
                 return ValidateSetSpeed(packet.SpeedLimitMBs);
             default:
                 return "400_BAD_COMMAND";
@@ -61,7 +69,7 @@ public static class PacketValidator
 
     public static string? ValidateRegister(string? username, string? password)
     {
-        if (string.IsNullOrWhiteSpace(username) || username.Length > 50)
+        if (string.IsNullOrWhiteSpace(username) || username.Length < 3 || username.Length > 32)
             return "400_INVALID_USERNAME";
         if (string.IsNullOrWhiteSpace(password) || password.Length < 6 || password.Length > 100)
             return "400_INVALID_PASSWORD";
@@ -80,6 +88,15 @@ public static class PacketValidator
         if (string.IsNullOrWhiteSpace(username) || username.Length > 50)
             return "400_INVALID_USERNAME";
         if (string.IsNullOrWhiteSpace(password) || password.Length < 6 || password.Length > 100)
+            return "400_INVALID_PASSWORD";
+        return null;
+    }
+
+    public static string? ValidateChangePassword(string? username, string? newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            return "400_INVALID_USERNAME";
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
             return "400_INVALID_PASSWORD";
         return null;
     }
@@ -119,5 +136,21 @@ public static class PacketValidator
         if (speedMBs != 1 && speedMBs != 5 && speedMBs != 10)
             return "400_INVALID_SPEED";
         return null;
+    }
+
+    public static string? ValidateUpload(string? fileName, long totalSize)
+    {
+        if (ValidateFileName(fileName) != null)
+            return "400_INVALID_FILENAME";
+        if (totalSize > 3L * 1024 * 1024 * 1024)
+            return "413_FILE_TOO_LARGE";
+
+        return null;
+    }
+
+    public static string? ValidateSetting(long requestedRateBytesPerSecond)
+    {
+        long[] allowed = { 1L * 1024 * 1024, 5L * 1024 * 1024, 10L * 1024 * 1024 };
+        return allowed.Contains(requestedRateBytesPerSecond) ? null : "400_INVALID_SETTING";
     }
 }

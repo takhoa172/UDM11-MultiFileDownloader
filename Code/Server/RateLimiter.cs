@@ -5,8 +5,8 @@ namespace Server
 {
     public sealed class RateLimiter
     {
-        private readonly double _bytesPerSecond;
-        private readonly double _maxTokens;
+        private double _bytesPerSecond;
+        private double _maxTokens;
         private readonly object _sync = new object();
         private double _tokens;
         private long _lastTicks;
@@ -20,6 +20,19 @@ namespace Server
             _maxTokens = maxBurstBytes > 0 ? maxBurstBytes : bytesPerSecond;
             _tokens = 0;
             _lastTicks = DateTime.UtcNow.Ticks;
+        }
+
+        public long BytesPerSecond => (long)_bytesPerSecond;
+
+        public void SetRate(long bytesPerSecond)
+        {
+            lock (_sync)
+            {
+                _bytesPerSecond = bytesPerSecond;
+                _maxTokens = bytesPerSecond;
+                _tokens = Math.Min(_tokens, _maxTokens);
+                _lastTicks = DateTime.UtcNow.Ticks;
+            }
         }
 
         public async Task ThrottleAsync(int bytes)

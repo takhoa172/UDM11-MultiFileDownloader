@@ -16,27 +16,42 @@ public enum PacketCommand
     REGISTER,
     FORGOT_PASSWORD,
     RESET_PASSWORD,
+    CHANGE_PASSWORD,
+    AUTH_RESP,
     UPLOAD_REQ,
+    UPLOAD_CHUNK,
+    UPLOAD_DONE,
     DELETE_REQ,
     RENAME_REQ,
-    SET_SPEED
+    SET_SPEED,
+    DELETE_FILE,
+    RENAME_FILE,
+    SET_RATE_LIMIT,
+    SETTING_RESP
 }
 
 public sealed class ProtocolPacket
 {
     public PacketCommand Command { get; set; }
     public string? FileName { get; set; }
+    public string? NewFileName { get; set; }
     public string? Username { get; set; }
     public string? Password { get; set; }
-    public string? NewFileName { get; set; }
+    public string? PasswordHash { get; set; }
+    public string? NewPasswordHash { get; set; }
     public string? ErrorCode { get; set; }
     public string? Message { get; set; }
     public string? DataBase64 { get; set; }
+    public string? Token { get; set; }
+    public bool Success { get; set; }
     public bool IsLastChunk { get; set; } = true;
     public string? FileHash { get; set; }
     public long TotalSize { get; set; }
     public long Offset { get; set; }
     public long? SpeedLimitMBs { get; set; }
+    public long RequestedRateBytesPerSecond { get; set; }
+    public int ChunkIndex { get; set; }
+    public int TotalChunks { get; set; }
 }
 
 public static class PacketHelper
@@ -54,10 +69,19 @@ public static class PacketHelper
         string json = JsonSerializer.Serialize(packet, JsonOptions);
         return Encoding.UTF8.GetBytes(json + "\n");
     }
+
     public static string EncodeToString(ProtocolPacket packet)
     {
         ArgumentNullException.ThrowIfNull(packet);
         return JsonSerializer.Serialize(packet, JsonOptions);
+    }
+
+    public static ProtocolPacket Decode(byte[] data)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+
+        string json = Encoding.UTF8.GetString(data);
+        return Decode(json);
     }
 
     public static ProtocolPacket Decode(string data)

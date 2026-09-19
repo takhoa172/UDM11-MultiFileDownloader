@@ -301,93 +301,16 @@ static async Task<string?> ProcessRequestAsync(
                 }
 
             case PacketCommand.LOGIN:
-                {
-                    try
-                    {
-                        var result = UserStore.Login(
-                            request.Username ?? "",
-                            request.Password ?? "");
-
-                        ServerLogger.LogInfo(
-                            $"[{clientIp}] Đăng nhập: {request.Username} -> {(result.Success ? "OK" : "FAIL")}");
-
-                        if (result.Success)
-                            connectedUsername = request.Username;
-
-                        await SendPacketAsync(
-                            stream,
-                            new ProtocolPacket
-                            {
-                                Command = result.Success
-                                    ? PacketCommand.PONG
-                                    : PacketCommand.ERROR_RESP,
-                                ErrorCode = result.Success ? null : "401_LOGIN_FAILED",
-                                Message = result.Message
-                            });
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.LogError(
-                            $"[{clientIp}] Lỗi xử lý đăng nhập: {ex.Message}");
-
-                        await SendPacketAsync(
-                            stream,
-                            new ProtocolPacket
-                            {
-                                Command = PacketCommand.ERROR_RESP,
-                                ErrorCode = "500_SERVER_ERROR",
-                                Message = "Lỗi server khi đăng nhập."
-                            });
-                    }
-
-                    break;
-                }
-
             case PacketCommand.REGISTER:
-                {
-                    try
-                    {
-                        var result = UserStore.Register(
-                            request.Username ?? "",
-                            request.Password ?? "");
-
-                        ServerLogger.LogInfo(
-                            $"[{clientIp}] Đăng ký: {request.Username} -> {(result.Success ? "OK" : "FAIL")}");
-
-                        await SendPacketAsync(
-                            stream,
-                            new ProtocolPacket
-                            {
-                                Command = result.Success
-                                    ? PacketCommand.PONG
-                                    : PacketCommand.ERROR_RESP,
-                                ErrorCode = result.Success ? null : "400_REGISTER_FAILED",
-                                Message = result.Message
-                            });
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.LogError(
-                            $"[{clientIp}] Lỗi xử lý đăng ký: {ex.Message}");
-
-                        await SendPacketAsync(
-                            stream,
-                            new ProtocolPacket
-                            {
-                                Command = PacketCommand.ERROR_RESP,
-                                ErrorCode = "500_SERVER_ERROR",
-                                Message = "Lỗi server khi đăng ký."
-                            });
-                    }
-
-                    break;
-                }
+            case PacketCommand.CHANGE_PASSWORD:
+                await AuthHandler.HandleAsync(stream, request);
+                break;
 
             case PacketCommand.FORGOT_PASSWORD:
                 {
                     try
                     {
-                        var users = Server.UserStore.LoadUsersForCheck();
+                        var users = UserStore.LoadUsersForCheck();
                         var user = users.FirstOrDefault(u =>
                             u.Username.Equals(request.Username ?? "", StringComparison.OrdinalIgnoreCase));
 
@@ -430,20 +353,20 @@ static async Task<string?> ProcessRequestAsync(
                 {
                     try
                     {
-                        var result = UserStore.ResetPassword(
+                        var result = UserStore.ChangePassword(
                             request.Username ?? "",
                             request.Password ?? "");
 
                         ServerLogger.LogInfo(
-                            $"[{clientIp}] Đặt lại mật khẩu: {request.Username} -> {(result.Success ? "OK" : "FAIL")}");
+                            $"[{clientIp}] Đặt lại mật khẩu: {request.Username} -> {(result ? "OK" : "FAIL")}");
 
                         await SendPacketAsync(stream, new ProtocolPacket
                         {
-                            Command = result.Success
+                            Command = result
                                 ? PacketCommand.PONG
                                 : PacketCommand.ERROR_RESP,
-                            ErrorCode = result.Success ? null : "400_RESET_FAILED",
-                            Message = result.Message
+                            ErrorCode = result ? null : "400_RESET_FAILED",
+                            Message = result ? "Đặt lại mật khẩu thành công." : "Đặt lại mật khẩu thất bại."
                         });
                     }
                     catch (Exception ex)
