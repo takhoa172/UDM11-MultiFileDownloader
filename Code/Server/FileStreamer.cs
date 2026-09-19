@@ -10,14 +10,16 @@ public static class FileStreamer
         NetworkStream stream,
         string filePath,
         string fileName,
-        CancellationToken cancellationToken)
+        long offset,
+        CancellationToken cancellationToken,
+        RateLimiter? userLimiter = null)
     {
         if (!File.Exists(filePath))
         {
             await SendErrorAsync(
                 stream,
                 "404_NOT_FOUND",
-                "Khong tim thay file yeu cau.",
+                "Không tìm thấy file yêu cầu.",
                 cancellationToken);
 
             return;
@@ -33,9 +35,26 @@ public static class FileStreamer
                 ServerConfig.BufferSize,
                 useAsync: true);
 
+            long totalSize = fileStream.Length;
+
+            if (offset > 0)
+            {
+                if (offset >= totalSize)
+                {
+                    await SendErrorAsync(
+                        stream,
+                        "416_RANGE_NOT_SATISFIABLE",
+                        "Offset vượt qua kích thước file.",
+                        cancellationToken);
+                    return;
+                }
+
+                fileStream.Seek(offset, SeekOrigin.Begin);
+            }
+
             using SHA256 sha256 = SHA256.Create();
 
-            ServerLogger.LogDownload(fileName, fileStream.Length);
+            ServerLogger.LogDownload(fileName, totalSize);
 
             byte[] buffer = new byte[ServerConfig.BufferSize];
 
@@ -74,7 +93,7 @@ public static class FileStreamer
                 string chunkBase64 =
                     PacketHelper.EncodeBinaryData(chunk);
 
-                await ServerConfig.DownloadLimiter.ThrottleAsync(chunk.Length);
+                await (userLimiter ?? ServerConfig.DownloadLimiter).ThrottleAsync(chunk.Length);
 
                 await SendPacketAsync(
                     stream,
@@ -84,6 +103,7 @@ public static class FileStreamer
                         FileName = fileName,
                         DataBase64 = chunkBase64,
                         IsLastChunk = isLastChunk,
+                        TotalSize = totalSize,
                         FileHash = isLastChunk
                             ? GetFinalHash(sha256)
                             : null
@@ -94,7 +114,6 @@ public static class FileStreamer
                     break;
             }
 
-            // File rỗng
             if (!hasSentChunk)
             {
                 sha256.TransformFinalBlock(
@@ -110,6 +129,7 @@ public static class FileStreamer
                         FileName = fileName,
                         DataBase64 = string.Empty,
                         IsLastChunk = true,
+                        TotalSize = totalSize,
                         FileHash = Convert.ToHexString(
                             sha256.Hash!).ToLowerInvariant()
                     },
@@ -118,8 +138,6 @@ public static class FileStreamer
         }
         catch (OperationCanceledException)
         {
-            // Timeout hoặc download bị hủy.
-            // Không gửi thêm ERROR_RESP vì request đã bị hủy.
             return;
         }
         catch (Exception ex)
@@ -204,8 +222,6 @@ public static class FileStreamer
         }
         catch
         {
-            // Client có thể đã ngắt kết nối.
-            // Không để lỗi gửi ERROR_RESP làm Server crash.
         }
     }
 }

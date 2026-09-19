@@ -22,8 +22,6 @@ namespace Server
             _lastTicks = DateTime.UtcNow.Ticks;
         }
 
-        public long BytesPerSecond => (long)_bytesPerSecond;
-
         public async Task ThrottleAsync(int bytes)
         {
             if (_bytesPerSecond == Unlimited || bytes <= 0)

@@ -7,17 +7,18 @@ public sealed class ClientSettings
     public DownloadSection Download { get; set; } = new();
     public NetworkSection Network { get; set; } = new();
 
+    private static readonly string SettingsPath =
+        Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+
     public static ClientSettings Load()
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-
-        if (!File.Exists(path))
+        if (!File.Exists(SettingsPath))
             return new ClientSettings();
 
         try
         {
             return JsonSerializer.Deserialize<ClientSettings>(
-                       File.ReadAllText(path),
+                       File.ReadAllText(SettingsPath),
                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                    ?? new ClientSettings();
         }
@@ -26,11 +27,28 @@ public sealed class ClientSettings
             return new ClientSettings();
         }
     }
+
+    public void Save()
+    {
+        try
+        {
+            string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+            File.WriteAllText(SettingsPath, json);
+        }
+        catch
+        {
+        }
+    }
 }
 
 public sealed class DownloadSection
 {
     public int MaxConcurrentDownloads { get; set; } = 3;
+    public long SpeedLimitMBs { get; set; } = 5;
     public string ConflictMode { get; set; } = "AutoRename";
     public string SaveFolder { get; set; } = "";
 }

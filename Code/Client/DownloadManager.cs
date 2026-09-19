@@ -11,9 +11,9 @@ namespace Client.Logic
 {
     public class DownloadProgressModel
     {
-        public string FileName { get; set; } = string.Empty;
         public int Percentage { get; set; }
         public string SpeedInfo { get; set; } = string.Empty;
+        public long DownloadedBytes { get; set; }
     }
 
     public enum DownloadStatusResult
@@ -42,6 +42,8 @@ namespace Client.Logic
         public async Task<DownloadResult> StartDownloadAsync(
             string fileName,
             long totalBytes,
+            long downloadedBytes,
+            string existingPartPath,
             string serverIp,
             int serverPort,
             string saveDirectory,
@@ -59,25 +61,39 @@ namespace Client.Logic
             {
                 Directory.CreateDirectory(saveDirectory);
 
-                // STT 8: xác định đường dẫn lưu theo 3 chế độ
-                // AutoRename / Overwrite / Skip.
-                filePath = FileConflictManager.ResolveTargetPath(
-                    saveDirectory, fileName, conflictMode);
+                string? partPath = existingPartPath;
+                bool isResume = false;
 
-                if (filePath == null)
+                if (!string.IsNullOrEmpty(partPath) && File.Exists(partPath))
                 {
-                    progress?.Report(new DownloadProgressModel
-                    {
-                        FileName = fileName,
-                        Percentage = 100,
-                        SpeedInfo = "Skipped"
-                    });
+                    long partLength = new FileInfo(partPath).Length;
+                    isResume = partLength > 0;
+                    downloadedBytes = partLength;
+                    filePath = Path.Combine(saveDirectory, fileName);
+                }
+                else
+                {
+                    filePath = FileConflictManager.ResolveTargetPath(
+                        saveDirectory, fileName, conflictMode);
 
-                    return new DownloadResult
+                    if (filePath == null)
                     {
-                        Status = DownloadStatusResult.Skipped,
-                        Message = "File đã tồn tại (bỏ qua)."
-                    };
+                        progress?.Report(new DownloadProgressModel
+                        {
+                            Percentage = 100,
+                            SpeedInfo = "Skipped"
+                        });
+
+                        return new DownloadResult
+                        {
+                            Status = DownloadStatusResult.Skipped,
+                            Message = "File đã tồn tại (bỏ qua)."
+                        };
+                    }
+
+                    partPath = filePath + ".part";
+                    downloadedBytes = 0;
+                    TryDeleteFile(partPath);
                 }
 
                 using var client = new TcpClient();
@@ -90,17 +106,19 @@ namespace Client.Logic
                 await writer.WriteLineAsync(PacketHelper.EncodeToString(new ProtocolPacket
                 {
                     Command = PacketCommand.DOWNLOAD_REQ,
-                    FileName = fileName
+                    FileName = fileName,
+                    Offset = downloadedBytes
                 }));
 
-                long downloadedBytes = 0;
+                long totalDownloaded = downloadedBytes;
                 long lastReportMs = 0;
                 string? errorMessage = null;
 
-                // STT 19: ghi file theo luồng (FileStream) để tránh tràn RAM.
+                FileMode mode = isResume ? FileMode.Append : FileMode.Create;
+
                 using (var fileStream = new FileStream(
-                    filePath,
-                    FileMode.Create,
+                    partPath,
+                    mode,
                     FileAccess.Write,
                     FileShare.None,
                     bufferSize: 8192,
@@ -116,8 +134,6 @@ namespace Client.Logic
 
                         if (packet.Command == PacketCommand.ERROR_RESP)
                         {
-                            // Ghi nhận lỗi rồi thoát vòng lặp để đóng FileStream
-                            // trước khi xóa file rỗng.
                             errorMessage = packet.Message
                                            ?? packet.ErrorCode
                                            ?? "Lỗi không xác định.";
@@ -127,7 +143,6 @@ namespace Client.Logic
                         if (packet.Command != PacketCommand.FILE_CHUNK)
                             continue;
 
-                        // STT 23: lấy hash server gửi ở chunk cuối (kể cả file rỗng).
                         if (packet.IsLastChunk && !string.IsNullOrEmpty(packet.FileHash))
                             expectedHash = packet.FileHash;
 
@@ -136,19 +151,18 @@ namespace Client.Logic
                             byte[] chunk = Convert.FromBase64String(packet.DataBase64);
                             await fileStream.WriteAsync(chunk, 0, chunk.Length);
 
-                            downloadedBytes += chunk.Length;
+                            totalDownloaded += chunk.Length;
 
                             if (packet.TotalSize > 0)
                                 totalBytes = packet.TotalSize;
 
-                            // STT 18: tính % và tốc độ.
                             long now = stopwatch.ElapsedMilliseconds;
                             if (now - lastReportMs >= 200 || packet.IsLastChunk)
                             {
                                 lastReportMs = now;
 
                                 int percentage = totalBytes > 0
-                                    ? (int)((double)downloadedBytes / totalBytes * 100)
+                                    ? (int)((double)totalDownloaded / totalBytes * 100)
                                     : 0;
 
                                 if (percentage > 100)
@@ -156,14 +170,14 @@ namespace Client.Logic
 
                                 double elapsed = stopwatch.Elapsed.TotalSeconds;
                                 double speedMBps = elapsed > 0
-                                    ? (downloadedBytes / elapsed) / (1024 * 1024)
+                                    ? (totalDownloaded / elapsed) / (1024 * 1024)
                                     : 0;
 
                                 progress?.Report(new DownloadProgressModel
                                 {
-                                    FileName = Path.GetFileName(filePath),
                                     Percentage = percentage,
-                                    SpeedInfo = $"{speedMBps:F2} MB/s"
+                                    SpeedInfo = $"{speedMBps:F2} MB/s",
+                                    DownloadedBytes = totalDownloaded
                                 });
                             }
                         }
@@ -173,10 +187,9 @@ namespace Client.Logic
                     }
                 }
 
-                // Server báo lỗi: xóa file rỗng/dở rồi trả lỗi.
                 if (errorMessage != null)
                 {
-                    TryDeleteFile(filePath);
+                    TryDeleteFile(partPath);
                     return new DownloadResult
                     {
                         Status = DownloadStatusResult.Error,
@@ -184,12 +197,12 @@ namespace Client.Logic
                     };
                 }
 
-                // STT 23: xác thực SHA-256; sai thì tự xóa file + báo hỏng.
                 bool hashOk = await FileIntegrityVerifier
-                    .VerifyFileAndDeleteIfCorruptAsync(filePath, expectedHash);
+                    .VerifyFileAndDeleteIfCorruptAsync(partPath, expectedHash);
 
                 if (!hashOk)
                 {
+                    TryDeleteFile(partPath);
                     return new DownloadResult
                     {
                         Status = DownloadStatusResult.Error,
@@ -197,16 +210,16 @@ namespace Client.Logic
                     };
                 }
 
+                File.Move(partPath, filePath);
+
                 return new DownloadResult
                 {
                     Status = DownloadStatusResult.Completed,
                     SavedPath = filePath
                 };
             }
-            // STT 21: cách ly ngoại lệ — lỗi file này không ảnh hưởng file khác.
             catch (Exception ex)
             {
-                TryDeleteFile(filePath);
                 return new DownloadResult
                 {
                     Status = DownloadStatusResult.Error,
@@ -229,7 +242,6 @@ namespace Client.Logic
             }
             catch
             {
-                // Bỏ qua: không để lỗi xóa file làm hỏng luồng.
             }
         }
     }
