@@ -48,9 +48,10 @@ namespace Client
 
     public sealed class DownloadSection
     {
-        public int MaxConcurrentDownloads { get; set; } = 3; // Giới hạn 1 đến 5 file đồng thời
+        public int MaxConcurrentDownloads { get; set; } = 3;
         public string ConflictMode { get; set; } = "AutoRename";
         public string SaveFolder { get; set; } = "";
+        public long SpeedLimitMBs { get; set; } = 5;
     }
 
     public sealed class NetworkSection
