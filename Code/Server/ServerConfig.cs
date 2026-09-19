@@ -9,6 +9,7 @@ public static class ServerConfig
     public static int ReadTimeoutMs => Settings.Timeout.ReadMs;
     public static int WriteTimeoutMs => Settings.Timeout.WriteMs;
     public static int BufferSize => Settings.Transfer.BufferSize;
+    public static long TotalBytesPerSecond => Settings.RateLimit.TotalBytesPerSecond;
 
     public static readonly RateLimiter DownloadLimiter =
         new RateLimiter(Settings.RateLimit.BytesPerSecond, Settings.RateLimit.MaxBurstBytes);
