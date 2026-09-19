@@ -21,6 +21,8 @@ namespace Client
         private int _progress;
         private DownloadStatus _status = DownloadStatus.Pending;
         private string _speedInfo = string.Empty;
+        private long _downloadedBytes;
+        private string _savedPath = string.Empty;
 
         public string FileName
         {
@@ -76,6 +78,18 @@ namespace Client
         {
             get => _speedInfo;
             set { if (_speedInfo != value) { _speedInfo = value; OnPropertyChanged(); } }
+        }
+
+        public long DownloadedBytes
+        {
+            get => _downloadedBytes;
+            set { if (_downloadedBytes != value) { _downloadedBytes = value; OnPropertyChanged(); } }
+        }
+
+        public string SavedPath
+        {
+            get => _savedPath;
+            set { if (_savedPath != value) { _savedPath = value; OnPropertyChanged(); } }
         }
 
         public string ProgressText => Progress > 0 ? $"{Progress}%" : "";

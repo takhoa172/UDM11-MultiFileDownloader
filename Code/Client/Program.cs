@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Net.Sockets;
 using System.Windows.Forms;
 
 namespace Client
@@ -12,7 +13,46 @@ namespace Client
             try
             {
                 ApplicationConfiguration.Initialize();
-                Application.Run(new MainForm());
+
+                using var networkService = new NetworkService();
+
+                using (var connForm = new ConnectionForm())
+                {
+                    if (connForm.ShowDialog() != DialogResult.OK)
+                        return;
+
+                    try
+                    {
+                        networkService.ConnectAsync(connForm.ServerIp, connForm.ServerPort)
+                            .GetAwaiter().GetResult();
+                    }
+                    catch (SocketException ex)
+                    {
+                        MessageBox.Show($"Không kết nối được Server: {ex.Message}",
+                            "Lỗi Kết Nối", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        MessageBox.Show("Hết thời gian kết nối.",
+                            "Timeout", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    string loggedUsername = "";
+
+                    using (var loginForm = new LoginForm(networkService))
+                    {
+                        if (loginForm.ShowDialog() != DialogResult.OK)
+                        {
+                            networkService.Dispose();
+                            return;
+                        }
+                        loggedUsername = loginForm.LoggedInUsername;
+                    }
+
+                    Application.Run(new MainForm(networkService, connForm.ServerIp, connForm.ServerPort, loggedUsername));
+                }
             }
             catch (Exception ex)
             {
@@ -21,7 +61,6 @@ namespace Client
             }
         }
 
-        // Kiểm tra địa chỉ IPv4 hợp lệ (4 nhóm, mỗi nhóm 0–255)
         public static bool IsValidIPv4Strict(string ip)
         {
             if (string.IsNullOrWhiteSpace(ip))

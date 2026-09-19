@@ -16,16 +16,19 @@ namespace Client
     {
         private bool _isConnected = false;
         private bool _mainConnectionBusy = false;
-        private readonly NetworkService _networkService = new NetworkService();
+        private readonly NetworkService _networkService;
         private readonly System.Windows.Forms.Timer _heartbeatTimer = new();
 
         private readonly BindingList<FileItem> _serverFiles = new BindingList<FileItem>();
         private readonly BindingList<FileItem> _downloadFiles = new BindingList<FileItem>();
+        private readonly List<FileItem> _uploadFiles = new List<FileItem>();
+        private readonly List<DownloadHistoryEntry> _downloadHistory = new List<DownloadHistoryEntry>();
+        private string _username = "";
 
         private readonly DownloadManager _downloadManager =
             new DownloadManager(ClientConfig.Settings.Download.MaxConcurrentDownloads);
-        private string _serverIp = "";
-        private int _serverPort = 0;
+        private string _serverIp;
+        private int _serverPort;
 
         private string _downloadFolder = ResolveSaveFolder();
 
@@ -50,17 +53,30 @@ namespace Client
         private bool _mouseDownForDrag = false;
         private List<FileItem> _savedSelection = new List<FileItem>();
 
-        public MainForm()
+        public MainForm(NetworkService networkService, string serverIp, int serverPort, string username)
         {
+            _networkService = networkService;
+            _serverIp = serverIp;
+            _serverPort = serverPort;
+            _username = username;
+
             InitializeComponent();
 
             SetupGridViews();
             SetupDragAndDrop();
-            SetConnectionState(false);
+            SetupManageFilePage();
+            SetupSettingsPage();
+            SwitchPage(pnlDownloadPage, btnNavDownload);
             txtSaveFolder.Text = _downloadFolder;
 
             _heartbeatTimer.Interval = 10000;
             _heartbeatTimer.Tick += async (s, e) => await HeartbeatAsync();
+
+            SetConnectionState(true);
+            _heartbeatTimer.Start();
+            _ = FetchServerFileListAsync();
+            RestorePendingDownloads();
+            LoadDownloadHistory();
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -155,7 +171,11 @@ namespace Client
             if (dgvServer.Columns["Status"] != null) dgvServer.Columns["Status"]!.Visible = false;
             if (dgvServer.Columns["StatusText"] != null) dgvServer.Columns["StatusText"]!.Visible = false;
             if (dgvServer.Columns["SpeedInfo"] != null) dgvServer.Columns["SpeedInfo"]!.Visible = false;
+            if (dgvServer.Columns["DownloadedBytes"] != null) dgvServer.Columns["DownloadedBytes"]!.Visible = false;
+            if (dgvServer.Columns["SavedPath"] != null) dgvServer.Columns["SavedPath"]!.Visible = false;
 
+            if (dgvDownload.Columns["DownloadedBytes"] != null) dgvDownload.Columns["DownloadedBytes"]!.Visible = false;
+            if (dgvDownload.Columns["SavedPath"] != null) dgvDownload.Columns["SavedPath"]!.Visible = false;
             if (dgvDownload.Columns["FileSizeBytes"] != null) dgvDownload.Columns["FileSizeBytes"]!.Visible = false;
             if (dgvDownload.Columns["Progress"] != null) dgvDownload.Columns["Progress"]!.Visible = false;
             if (dgvDownload.Columns["Status"] != null) dgvDownload.Columns["Status"]!.Visible = false;
@@ -184,15 +204,559 @@ namespace Client
 
         private void SetupDragAndDrop()
         {
-            dgvServer.AllowDrop = false;
-            dgvDownload.AllowDrop = true;
             dgvDownload.DragEnter += dgvDownload_DragEnter;
             dgvDownload.DragDrop += dgvDownload_DragDrop;
         }
 
         // ─────────────────────────────────────────────────────────────
+        //  SIDEBAR NAVIGATION
+        // ─────────────────────────────────────────────────────────────
+
+        private void SetupManageFilePage()
+        {
+            dgvManageFile.AutoGenerateColumns = false;
+
+            dgvManageFile.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "STT",
+                HeaderText = "STT",
+                Width = 40,
+                FillWeight = 30
+            });
+            dgvManageFile.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "DisplayName",
+                HeaderText = "Tên File",
+                FillWeight = 40
+            });
+            dgvManageFile.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "FormattedSize",
+                HeaderText = "Kích Thước",
+                FillWeight = 15
+            });
+            dgvManageFile.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "SavedPath",
+                HeaderText = "Đường dẫn",
+                FillWeight = 35
+            });
+            dgvManageFile.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "DownloadedAt",
+                HeaderText = "Ngày tải",
+                FillWeight = 15
+            });
+            dgvManageFile.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Type",
+                HeaderText = "Loại",
+                FillWeight = 10
+            });
+        }
+
+        private void SetupSettingsPage()
+        {
+            btnChangePassword.Click += btnChangePassword_Click;
+            nudConcurrentDownloads.ValueChanged += nudConcurrentDownloads_ValueChanged;
+            cmbSpeedLimit.SelectedIndexChanged += cmbSpeedLimit_SelectedIndexChanged;
+        }
+
+        private Panel? _activePage;
+        private Button? _activeNavButton;
+
+        private void SwitchPage(Panel page, Button navButton)
+        {
+            if (_activePage != null) _activePage.Visible = false;
+            if (_activeNavButton != null)
+                _activeNavButton.BackColor = Color.FromArgb(30, 30, 60);
+
+            page.Visible = true;
+            page.BringToFront();
+            navButton.BackColor = Color.FromArgb(50, 50, 90);
+
+            _activePage = page;
+            _activeNavButton = navButton;
+
+            if (page == pnlManageFilePage)
+                RefreshManageFileList();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  SETTINGS PAGE
+        // ─────────────────────────────────────────────────────────────
+
+        private void LoadSettingsPage()
+        {
+            lblSettingsUsernameValue.Text = _username;
+            nudConcurrentDownloads.Value = ClientConfig.Settings.Download.MaxConcurrentDownloads;
+
+            int currentSpeed = ClientConfig.Settings.Network.RequestedRateMBps;
+            int speedIndex = cmbSpeedLimit.Items.IndexOf(currentSpeed.ToString());
+            cmbSpeedLimit.SelectedIndex = speedIndex >= 0 ? speedIndex : 1;
+        }
+
+        private void nudConcurrentDownloads_ValueChanged(object? sender, EventArgs e)
+        {
+            int value = (int)nudConcurrentDownloads.Value;
+            ClientConfig.Settings.Download.MaxConcurrentDownloads = value;
+            ClientConfig.Settings.Save();
+        }
+
+        private void cmbSpeedLimit_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (cmbSpeedLimit.SelectedItem == null || !_isConnected) return;
+
+            long speedMBs = long.Parse(cmbSpeedLimit.SelectedItem.ToString()!);
+            ClientConfig.Settings.Network.RequestedRateMBps = (int)speedMBs;
+            ClientConfig.Settings.Save();
+
+            _ = SendSpeedLimitAsync(speedMBs);
+        }
+
+        private async Task SendSpeedLimitAsync(long speedMBs)
+        {
+            try
+            {
+                await _networkService.SendPacketAsync(new ProtocolPacket
+                {
+                    Command = PacketCommand.SET_RATE_LIMIT,
+                    RequestedRateBytesPerSecond = speedMBs * 1024 * 1024
+                });
+
+                ProtocolPacket response = await _networkService.ReadPacketAsync();
+                if (response.Command == PacketCommand.SETTING_RESP)
+                    SetNotification($"Đã đặt tốc độ tải: {speedMBs} MB/s", isError: false);
+                else
+                    SetNotification($"Lỗi đặt tốc độ: {response.Message}", isError: true);
+            }
+            catch (Exception ex)
+            {
+                SetNotification($"Lỗi đặt tốc độ: {ex.Message}", isError: true);
+            }
+        }
+
+        private void btnChangePassword_Click(object? sender, EventArgs e)
+        {
+            if (!_isConnected)
+            {
+                SetNotification("Chưa kết nối Server.", isError: true);
+                return;
+            }
+
+            using var form = new ForgotPasswordForm(_networkService);
+            form.ShowDialog(this);
+        }
+
+        private void RefreshManageFileList()
+        {
+            dgvManageFile.Rows.Clear();
+
+            if (_serverFiles.Count > 0)
+            {
+                var serverFileNames = new HashSet<string>(
+                    _serverFiles.Select(f => f.FileName),
+                    StringComparer.OrdinalIgnoreCase);
+
+                bool removed = _downloadHistory.RemoveAll(h =>
+                    h.Type == "Upload" && !serverFileNames.Contains(h.FileName)) > 0;
+
+                if (removed)
+                    DownloadHistoryStore.Save(_downloadHistory);
+            }
+
+            var allEntries = new List<(string DisplayName, string FormattedSize, string SavedPath, string DownloadedAt, string Type)>();
+
+            foreach (var f in _uploadFiles)
+            {
+                string dateStr = "";
+                var h = _downloadHistory.FirstOrDefault(x =>
+                    string.Equals(x.SavedPath, f.SavedPath, StringComparison.OrdinalIgnoreCase));
+                if (h != null)
+                    dateStr = h.FormattedDate;
+
+                allEntries.Add((f.DisplayName, f.FormattedSize, f.SavedPath, dateStr, "Upload"));
+            }
+
+            foreach (var h in _downloadHistory.Where(h => h.Type == "Upload"))
+            {
+                bool exists = _uploadFiles.Any(f =>
+                    string.Equals(f.SavedPath, h.SavedPath, StringComparison.OrdinalIgnoreCase));
+                if (!exists)
+                {
+                    allEntries.Add((h.DisplayName, h.FormattedSize, h.SavedPath, h.FormattedDate, h.Type));
+                }
+            }
+
+            for (int i = 0; i < allEntries.Count; i++)
+            {
+                var e = allEntries[i];
+                dgvManageFile.Rows.Add(
+                    i + 1,
+                    e.DisplayName,
+                    e.FormattedSize,
+                    e.SavedPath,
+                    e.DownloadedAt,
+                    e.Type
+                );
+            }
+        }
+
+        private void btnNav_Click(object? sender, EventArgs e)
+        {
+            if (sender is not Button btn) return;
+
+            if (btn == btnNavManageFile)
+                SwitchPage(pnlManageFilePage, btnNavManageFile);
+            else if (btn == btnNavDownload)
+                SwitchPage(pnlDownloadPage, btnNavDownload);
+            else if (btn == btnNavSetting)
+            {
+                LoadSettingsPage();
+                SwitchPage(pnlSettingsPage, btnNavSetting);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  MANAGE FILE TOOLBAR
+        // ─────────────────────────────────────────────────────────────
+
+        private async void btnRefresh_Click(object? sender, EventArgs e)
+        {
+            if (_isConnected)
+            {
+                SetNotification("Đang làm mới...", isError: false);
+                await FetchServerFileListAsync();
+            }
+            RefreshManageFileList();
+        }
+
+        private async void btnRename_Click(object? sender, EventArgs e)
+        {
+            if (dgvManageFile.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Vui lòng chọn file cần đổi tên.", "Thông báo",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            if (!_isConnected)
+            {
+                MessageBox.Show("Chưa kết nối Server.", "Lỗi",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var row = dgvManageFile.SelectedRows[0];
+            string? oldPath = row.Cells["SavedPath"].Value?.ToString();
+            string? oldName = row.Cells["DisplayName"].Value?.ToString();
+
+            if (string.IsNullOrEmpty(oldPath) || string.IsNullOrEmpty(oldName))
+                return;
+
+            string? newName = ShowInputDialog("Nhập tên mới:", "Đổi tên file", oldName);
+            if (string.IsNullOrWhiteSpace(newName) || newName == oldName)
+                return;
+
+            try
+            {
+                await _networkService.SendPacketAsync(new ProtocolPacket
+                {
+                    Command = PacketCommand.RENAME_FILE,
+                    FileName = oldName,
+                    NewFileName = newName
+                });
+
+                ProtocolPacket result = await _networkService.ReadPacketAsync();
+                if (result.Command == PacketCommand.PONG)
+                {
+                    var item = _uploadFiles.FirstOrDefault(f => f.SavedPath == oldPath);
+                    if (item != null)
+                    {
+                        item.DisplayName = newName;
+                    }
+
+                    var historyItem = _downloadHistory.FirstOrDefault(h =>
+                        string.Equals(h.SavedPath, oldPath, StringComparison.OrdinalIgnoreCase));
+                    if (historyItem != null)
+                    {
+                        historyItem.DisplayName = newName;
+                        DownloadHistoryStore.Save(_downloadHistory);
+                    }
+
+                    RefreshManageFileList();
+                    SetNotification($"Đã đổi tên: {oldName} -> {newName}", isError: false);
+                }
+                else
+                {
+                    SetNotification($"Lỗi đổi tên: {result.Message}", isError: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                SetNotification($"Lỗi đổi tên: {ex.Message}", isError: true);
+            }
+        }
+
+        private async void btnDeleteFile_Click(object? sender, EventArgs e)
+        {
+            if (dgvManageFile.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Vui lòng chọn file cần xóa.", "Thông báo",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var rows = dgvManageFile.SelectedRows;
+            var names = new List<string>();
+            var paths = new List<string>();
+
+            foreach (DataGridViewRow row in rows)
+            {
+                string? path = row.Cells["SavedPath"].Value?.ToString();
+                string? name = row.Cells["DisplayName"].Value?.ToString();
+                if (!string.IsNullOrEmpty(path))
+                {
+                    paths.Add(path);
+                    names.Add(name ?? "");
+                }
+            }
+
+            if (paths.Count == 0) return;
+
+            string msg = paths.Count == 1
+                ? $"Bạn có chắc muốn xóa \"{names[0]}\" khỏi Server?"
+                : $"Bạn có chắc muốn xóa {paths.Count} file khỏi Server?";
+
+            if (MessageBox.Show(msg, "Xác nhận xóa",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                return;
+
+            if (!_isConnected)
+            {
+                MessageBox.Show("Chưa kết nối Server.", "Lỗi",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int deleted = 0;
+            for (int i = 0; i < paths.Count; i++)
+            {
+                try
+                {
+                    string path = paths[i];
+                    string fileName = names[i];
+
+                    await _networkService.SendPacketAsync(new ProtocolPacket
+                    {
+                        Command = PacketCommand.DELETE_FILE,
+                        FileName = fileName
+                    });
+
+                    ProtocolPacket result = await _networkService.ReadPacketAsync();
+                    if (result.Command == PacketCommand.PONG)
+                    {
+                        var item = _uploadFiles.FirstOrDefault(f => f.SavedPath == path);
+                        if (item != null)
+                            _uploadFiles.Remove(item);
+
+                        var historyItem = _downloadHistory.FirstOrDefault(h =>
+                            string.Equals(h.SavedPath, path, StringComparison.OrdinalIgnoreCase));
+                        if (historyItem != null)
+                            _downloadHistory.Remove(historyItem);
+
+                        DownloadHistoryStore.RemoveEntry(path);
+
+                        deleted++;
+                    }
+                    else
+                    {
+                        SetNotification($"Lỗi xóa {fileName}: {result.Message}", isError: true);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    SetNotification($"Lỗi xóa: {ex.Message}", isError: true);
+                }
+            }
+
+            RefreshManageFileList();
+            SetNotification($"Đã xóa {deleted} file khỏi Server.", isError: false);
+        }
+
+        private async void btnUpload_Click(object? sender, EventArgs e)
+        {
+            if (!_isConnected)
+            {
+                MessageBox.Show("Chưa kết nối Server.", "Lỗi",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (_mainConnectionBusy)
+            {
+                SetNotification("Đang bận, vui lòng thử lại sau.", isError: true);
+                return;
+            }
+
+            _mainConnectionBusy = true;
+            try
+            {
+                using var dialog = new OpenFileDialog();
+                dialog.Title = "Chọn file để tải lên Server";
+                dialog.Multiselect = true;
+
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                int uploaded = 0;
+                int failed = 0;
+
+                foreach (string filePath in dialog.FileNames)
+                {
+                    string fileName = Path.GetFileName(filePath);
+                    long size = new FileInfo(filePath).Length;
+
+                    try
+                    {
+                        SetNotification($"Đang tải lên: {fileName}...", isError: false);
+
+                        await _networkService.SendPacketAsync(new ProtocolPacket
+                        {
+                            Command = PacketCommand.UPLOAD_REQ,
+                            FileName = fileName
+                        });
+
+                        ProtocolPacket ready = await _networkService.ReadPacketAsync();
+                        if (ready.Command != PacketCommand.PONG)
+                        {
+                            SetNotification($"Lỗi tải lên {fileName}: {ready.Message}", isError: true);
+                            failed++;
+                            continue;
+                        }
+
+                        string actualName = !string.IsNullOrEmpty(ready.FileName)
+                            ? ready.FileName
+                            : fileName;
+
+                        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        byte[] buffer = new byte[8192];
+                        int bytesRead;
+
+                        while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        {
+                            bool isLast = fs.Position >= fs.Length;
+                            await _networkService.SendPacketAsync(new ProtocolPacket
+                            {
+                                Command = PacketCommand.FILE_CHUNK,
+                                FileName = actualName,
+                                DataBase64 = PacketHelper.EncodeBinaryData(buffer[..bytesRead]),
+                                IsLastChunk = isLast
+                            });
+                        }
+
+                        ProtocolPacket result = await _networkService.ReadPacketAsync();
+                        if (result.Command == PacketCommand.PONG)
+                        {
+                            uploaded++;
+                            _uploadFiles.Add(new FileItem
+                            {
+                                STT = _uploadFiles.Count + 1,
+                                FileName = actualName,
+                                DisplayName = actualName,
+                                FileSizeBytes = size,
+                                SavedPath = filePath,
+                                Progress = 100,
+                                Status = DownloadStatus.Completed
+                            });
+
+                            var historyEntry = new DownloadHistoryEntry
+                            {
+                                FileName = actualName,
+                                DisplayName = actualName,
+                                FileSizeBytes = size,
+                                SavedPath = filePath,
+                                DownloadedAt = DateTime.Now,
+                                Type = "Upload",
+                                Username = _username
+                            };
+                            _downloadHistory.Add(historyEntry);
+                            DownloadHistoryStore.AddEntry(historyEntry);
+
+                            SetNotification($"Đã tải lên: {fileName}", isError: false);
+                        }
+                        else
+                        {
+                            failed++;
+                            SetNotification($"Lỗi tải lên {fileName}: {result.Message}", isError: true);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        SetNotification($"Lỗi tải lên {fileName}: {ex.Message}", isError: true);
+                    }
+                }
+
+                SetNotification($"Hoàn thành: {uploaded} thành công, {failed} lỗi.", isError: failed > 0);
+                _ = FetchServerFileListAsync();
+            }
+            finally
+            {
+                _mainConnectionBusy = false;
+            }
+        }
+
+        private string? ShowInputDialog(string title, string prompt, string defaultValue)
+        {
+            using var form = new Form()
+            {
+                Text = title,
+                Size = new Size(380, 150),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            var lbl = new Label() { Left = 15, Top = 15, Text = prompt, AutoSize = true };
+            var txt = new TextBox() { Left = 15, Top = 40, Width = 330, Text = defaultValue };
+            var btnOk = new Button() { Text = "OK", DialogResult = DialogResult.OK, Left = 200, Top = 75, Width = 70 };
+            var btnCancel = new Button() { Text = "Hủy", DialogResult = DialogResult.Cancel, Left = 280, Top = 75, Width = 70 };
+
+            form.Controls.Add(lbl);
+            form.Controls.Add(txt);
+            form.Controls.Add(btnOk);
+            form.Controls.Add(btnCancel);
+            form.AcceptButton = btnOk;
+            form.CancelButton = btnCancel;
+
+            return form.ShowDialog(this) == DialogResult.OK ? txt.Text : null;
+        }
+
+        private void txtSearchBox_TextChanged(object? sender, EventArgs e)
+        {
+            string search = txtSearchBox.Text.Trim().ToLower();
+            foreach (DataGridViewRow row in dgvManageFile.Rows)
+            {
+                string? name = row.Cells["DisplayName"].Value?.ToString()?.ToLower() ?? "";
+                row.Visible = string.IsNullOrEmpty(search) || name.Contains(search);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
         //  CONNECT / DISCONNECT
         // ─────────────────────────────────────────────────────────────
+
+        private void btnRefreshServerList_Click(object? sender, EventArgs e)
+        {
+            if (!_isConnected)
+            {
+                SetNotification("Chưa kết nối Server.", isError: true);
+                return;
+            }
+            _ = FetchServerFileListAsync();
+        }
 
         private void btnChooseFolder_Click(object? sender, EventArgs e)
         {
@@ -205,41 +769,27 @@ namespace Client
                 txtSaveFolder.Text = _downloadFolder;
             }
         }
-        private async void btnConnect_Click(object sender, EventArgs e)
+        private void btnShowConnectDialog_Click(object? sender, EventArgs e)
         {
-            if (_isConnected)
-            {
-                _networkService.Dispose();
-                SetConnectionState(false);
-                txtNotification.Clear();
-                lblLastSaved.Text = "Đã lưu: (chưa có file nào)";
-                return;
-            }
-            string ip = txtServerIp.Text.Trim();
-            string portText = txtServerPort.Text.Trim();
+            _ = ShowConnectionDialogAsync();
+        }
 
-            if (!Program.IsValidIPv4Strict(ip))
-            {
-                MessageBox.Show("Địa chỉ IP Server không hợp lệ!", "Lỗi IP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+        private async Task ShowConnectionDialogAsync()
+        {
+            if (_isConnected) return;
 
-            if (!int.TryParse(portText, out int port) || port <= 0 || port > 65535)
+            using var dialog = new ConnectionForm();
+            if (dialog.ShowDialog(this) == DialogResult.OK)
             {
-                MessageBox.Show("Port phải nằm trong khoảng từ 1 đến 65535!", "Lỗi Port", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                await ConnectToServerAsync(dialog.ServerIp, dialog.ServerPort);
             }
+        }
 
-            if (ip == "0.0.0.0" || ip == "255.255.255.255")
-            {
-                MessageBox.Show("Địa chỉ IP không hợp lệ!", "Lỗi IP",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
+        private async Task ConnectToServerAsync(string ip, int port)
+        {
             try
             {
-                btnConnect.Enabled = false;
+                btnShowConnectDialog.Enabled = false;
                 SetConnectionState(false, "● Đang kết nối...");
                 lblStatus.ForeColor = Color.Orange;
 
@@ -247,10 +797,22 @@ namespace Client
                 _serverIp = ip;
                 _serverPort = port;
 
+                using var loginForm = new LoginForm(_networkService);
+                if (loginForm.ShowDialog(this) != DialogResult.OK)
+                {
+                    _networkService.Dispose();
+                    SetConnectionState(false);
+                    return;
+                }
+
+                _username = loginForm.LoggedInUsername;
+
                 SetConnectionState(true);
                 _heartbeatTimer.Start();
 
                 await FetchServerFileListAsync();
+                RestorePendingDownloads();
+                LoadDownloadHistory();
             }
             catch (SocketException se)
             {
@@ -280,7 +842,10 @@ namespace Client
             }
             finally
             {
-                btnConnect.Enabled = true;
+                _mainConnectionBusy = false;
+
+                if (_activePage == pnlManageFilePage)
+                    RefreshManageFileList();
             }
         }
 
@@ -300,6 +865,9 @@ namespace Client
             int err = _downloadFiles.Count(f => f.Status == DownloadStatus.Error);
 
             lblDownloadStats.Text = $"Tổng: {total} file | Đã tải: {done} | Lỗi: {err}";
+
+            if (_activePage == pnlManageFilePage)
+                RefreshManageFileList();
         }
 
         private async Task HeartbeatAsync()
@@ -316,7 +884,7 @@ namespace Client
 
                 ProtocolPacket resp = await _networkService.ReadPacketAsync();
                 if (resp.Command != PacketCommand.PONG)
-                    throw new IOException("PONG khong hop le.");
+                    throw new IOException("PONG không hợp lệ.");
             }
             catch
             {
@@ -345,18 +913,19 @@ namespace Client
             {
                 lblStatus.Text = string.IsNullOrEmpty(customStatus) ? "● Đã kết nối" : customStatus;
                 lblStatus.ForeColor = Color.ForestGreen;
-                btnConnect.Text = "Ngắt kết nối";
-                txtServerIp.Enabled = false;
-                txtServerPort.Enabled = false;
+                btnShowConnectDialog.Visible = false;
+                lblConnectedInfo.Visible = true;
+                lblConnectedInfo.Text = $"Server: {_serverIp}:{_serverPort}";
                 this.Text = $"{baseTitle} - {GetClientEndpointInfo()}";
             }
             else
             {
                 lblStatus.Text = string.IsNullOrEmpty(customStatus) ? "● Chưa kết nối" : customStatus;
                 lblStatus.ForeColor = Color.Red;
-                btnConnect.Text = "Kết nối";
-                txtServerIp.Enabled = true;
-                txtServerPort.Enabled = true;
+                btnShowConnectDialog.Visible = true;
+                btnShowConnectDialog.Enabled = true;
+                lblConnectedInfo.Visible = false;
+                lblConnectedInfo.Text = "";
 
                 this.Text = baseTitle;
 
@@ -364,6 +933,7 @@ namespace Client
 
                 _serverFiles.Clear();
                 _downloadFiles.Clear();
+                _uploadFiles.Clear();
                 UpdateDownloadStats();
             }
         }
@@ -598,6 +1168,7 @@ namespace Client
                     FileName = item.FileName,
                     DisplayName = GetUniqueDownloadName(item.FileName),
                     FileSizeBytes = item.FileSizeBytes,
+                    SavedPath = Path.Combine(_downloadFolder, item.FileName) + ".part",
                     Progress = 0,
                     Status = DownloadStatus.Pending,
                     SpeedInfo = ""
@@ -622,7 +1193,8 @@ namespace Client
             int n = 1;
 
             while (used.Contains(candidate) ||
-                   File.Exists(Path.Combine(_downloadFolder, candidate)))
+                   File.Exists(Path.Combine(_downloadFolder, candidate)) ||
+                   File.Exists(Path.Combine(_downloadFolder, candidate + ".part")))
             {
                 candidate = $"{name}({n}){ext}";
                 n++;
@@ -635,10 +1207,52 @@ namespace Client
         //  DOWNLOAD QUEUE
         // ─────────────────────────────────────────────────────────────
 
+        private void RestorePendingDownloads()
+        {
+            var savedStates = DownloadStateStore.Load();
+            if (savedStates.Count == 0) return;
+
+            foreach (var state in savedStates)
+            {
+                int downloaded = state.FileSizeBytes > 0
+                    ? (int)(state.DownloadedBytes * 100 / state.FileSizeBytes)
+                    : 0;
+
+                var item = new FileItem
+                {
+                    STT = _downloadFiles.Count + 1,
+                    FileName = state.FileName,
+                    DisplayName = state.DisplayName,
+                    FileSizeBytes = state.FileSizeBytes,
+                    DownloadedBytes = state.DownloadedBytes,
+                    SavedPath = state.SavedPath,
+                    Progress = downloaded,
+                    Status = DownloadStatus.Downloading,
+                    SpeedInfo = "Đang tiếp tục..."
+                };
+
+                _downloadFiles.Add(item);
+                _ = StartDownloadAsync(item);
+            }
+
+            DownloadStateStore.Clear();
+            UpdateDownloadStats();
+            SetNotification($"Khôi phục {_downloadFiles.Count} file đang tải...", isError: false);
+        }
+
+        private void LoadDownloadHistory()
+        {
+            var history = DownloadHistoryStore.LoadByUsername(_username);
+            _downloadHistory.Clear();
+            _downloadHistory.AddRange(history);
+        }
+
         private async Task StartDownloadAsync(FileItem item)
         {
+            if (item.Status == DownloadStatus.Completed)
+                return;
+
             item.Status = DownloadStatus.Pending;
-            item.Progress = 0;
             item.SpeedInfo = "Chờ slot...";
 
             var progress = new Progress<DownloadProgressModel>(p =>
@@ -647,6 +1261,7 @@ namespace Client
 
                 item.Progress = p.Percentage;
                 item.SpeedInfo = p.SpeedInfo;
+                item.DownloadedBytes = p.DownloadedBytes;
 
                 if (item.Status == DownloadStatus.Pending)
                     item.Status = DownloadStatus.Downloading;
@@ -660,6 +1275,8 @@ namespace Client
             DownloadResult result = await _downloadManager.StartDownloadAsync(
                 item.FileName,
                 item.FileSizeBytes,
+                item.DownloadedBytes,
+                item.SavedPath,
                 _serverIp,
                 _serverPort,
                 _downloadFolder,
@@ -714,7 +1331,9 @@ namespace Client
             {
                 if (dgvDownload.Rows[e.RowIndex]?.DataBoundItem is FileItem item)
                 {
-                    DataGridViewPaintParts paintParts = e.PaintParts & ~DataGridViewPaintParts.Focus;
+                    DataGridViewPaintParts paintParts = e.PaintParts
+                        & ~DataGridViewPaintParts.Focus
+                        & ~DataGridViewPaintParts.ContentForeground;
                     e.Paint(e.ClipBounds, paintParts);
 
                     int percentage = Math.Clamp(item.Progress, 0, 100);
@@ -870,6 +1489,34 @@ namespace Client
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             _heartbeatTimer.Stop();
+
+            var statesToSave = _downloadFiles
+                .Where(f => f.Status == DownloadStatus.Downloading
+                         || f.Status == DownloadStatus.Pending)
+                .Select(f =>
+                {
+                    long downloaded = f.DownloadedBytes;
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(f.SavedPath) && File.Exists(f.SavedPath))
+                            downloaded = new FileInfo(f.SavedPath).Length;
+                    }
+                    catch { }
+
+                    return new DownloadState
+                    {
+                        FileName = f.FileName,
+                        DisplayName = f.DisplayName,
+                        FileSizeBytes = f.FileSizeBytes,
+                        DownloadedBytes = downloaded,
+                        SavedPath = f.SavedPath
+                    };
+                })
+                .ToList();
+
+            DownloadStateStore.Save(statesToSave);
+            DownloadHistoryStore.Save(_downloadHistory);
+
             _networkService?.Dispose();
             base.OnFormClosing(e);
         }

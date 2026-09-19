@@ -14,6 +14,7 @@ namespace Client.Logic
         public string FileName { get; set; } = string.Empty;
         public int Percentage { get; set; }
         public string SpeedInfo { get; set; } = string.Empty;
+        public long DownloadedBytes { get; set; }
     }
 
     public enum DownloadStatusResult { Completed, Skipped, Error }
@@ -42,6 +43,8 @@ namespace Client.Logic
         public async Task<DownloadResult> StartDownloadAsync(
             string fileName,
             long totalBytes,
+            long downloadedBytes,
+            string savedPath,
             string serverIp,
             int serverPort,
             string saveDirectory,
@@ -78,7 +81,7 @@ namespace Client.Logic
                     FileName = fileName
                 }));
 
-                long downloadedBytes = 0;
+                long currentDownloadedBytes = downloadedBytes;
                 long lastReportMs = 0;
                 string? errorMessage = null;
 
@@ -107,24 +110,25 @@ namespace Client.Logic
                             byte[] chunk = Convert.FromBase64String(packet.DataBase64);
                             await fileStream.WriteAsync(chunk, 0, chunk.Length);
 
-                            downloadedBytes += chunk.Length;
+                            currentDownloadedBytes += chunk.Length;
                             if (packet.TotalSize > 0) totalBytes = packet.TotalSize;
 
                             long now = stopwatch.ElapsedMilliseconds;
                             if (now - lastReportMs >= 200 || packet.IsLastChunk)
                             {
                                 lastReportMs = now;
-                                int percentage = totalBytes > 0 ? (int)((double)downloadedBytes / totalBytes * 100) : 0;
+                                int percentage = totalBytes > 0 ? (int)((double)currentDownloadedBytes / totalBytes * 100) : 0;
                                 if (percentage > 100) percentage = 100;
 
                                 double elapsed = stopwatch.Elapsed.TotalSeconds;
-                                double speedMBps = elapsed > 0 ? (downloadedBytes / elapsed) / (1024 * 1024) : 0;
+                                double speedMBps = elapsed > 0 ? (currentDownloadedBytes / elapsed) / (1024 * 1024) : 0;
 
                                 progress?.Report(new DownloadProgressModel
                                 {
                                     FileName = Path.GetFileName(filePath),
                                     Percentage = percentage,
-                                    SpeedInfo = $"{speedMBps:F2} MB/s"
+                                    SpeedInfo = $"{speedMBps:F2} MB/s",
+                                    DownloadedBytes = currentDownloadedBytes
                                 });
                             }
                         }
