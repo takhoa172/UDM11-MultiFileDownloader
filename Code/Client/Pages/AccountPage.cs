@@ -1,4 +1,6 @@
 using System;
+using System.Net.Sockets;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Shared;
 
@@ -6,14 +8,16 @@ namespace Client.Pages
 {
     public class AccountPage : UserControl
     {
-        // Khai báo giao diện 
+        private readonly NetworkService _networkService;
         private TextBox txtCurrentPassword = new TextBox();
         private TextBox txtNewPassword = new TextBox();
         private TextBox txtConfirmPassword = new TextBox();
         private Button btnChangePassword = new Button();
+        private Label lblStatus = new Label();
 
-        public AccountPage()
+        public AccountPage(NetworkService networkService)
         {
+            _networkService = networkService;
             InitializeComponent();
         }
 
@@ -31,8 +35,11 @@ namespace Client.Pages
             txtConfirmPassword.Top = 100; txtConfirmPassword.Left = 180; txtConfirmPassword.UseSystemPasswordChar = true;
 
             btnChangePassword.Text = "Đổi Mật Khẩu";
-            btnChangePassword.Top = 140; btnChangePassword.Left = 180; btnChangePassword.Width = 100;
+            btnChangePassword.Top = 140; btnChangePassword.Left = 180; btnChangePassword.Width = 120;
             btnChangePassword.Click += btnChangePassword_Click;
+
+            lblStatus.Top = 180; lblStatus.Left = 20; lblStatus.Width = 350;
+            lblStatus.ForeColor = System.Drawing.Color.Red;
 
             this.Controls.Add(lblCurrent);
             this.Controls.Add(txtCurrentPassword);
@@ -41,11 +48,12 @@ namespace Client.Pages
             this.Controls.Add(lblConfirm);
             this.Controls.Add(txtConfirmPassword);
             this.Controls.Add(btnChangePassword);
+            this.Controls.Add(lblStatus);
 
             this.ResumeLayout(false);
         }
 
-        private void btnChangePassword_Click(object? sender, EventArgs e)
+        private async void btnChangePassword_Click(object? sender, EventArgs e)
         {
             string currentPass = txtCurrentPassword.Text;
             string newPass = txtNewPassword.Text;
@@ -53,35 +61,67 @@ namespace Client.Pages
 
             if (string.IsNullOrEmpty(currentPass) || string.IsNullOrEmpty(newPass))
             {
-                MessageBox.Show("Vui lòng nhập đầy đủ thông tin mật khẩu.", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                lblStatus.ForeColor = System.Drawing.Color.Red;
+                lblStatus.Text = "Vui lòng nhập đầy đủ thông tin mật khẩu.";
                 return;
             }
 
             if (newPass != confirmPass)
             {
-                MessageBox.Show("Mật khẩu xác nhận không khớp!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                lblStatus.ForeColor = System.Drawing.Color.Red;
+                lblStatus.Text = "Mật khẩu xác nhận không khớp!";
+                return;
+            }
+
+            if (!_networkService.IsConnected)
+            {
+                lblStatus.ForeColor = System.Drawing.Color.Red;
+                lblStatus.Text = "Chưa kết nối Server.";
                 return;
             }
 
             try
             {
-                ProtocolPacket changePassPacket = new ProtocolPacket
+                btnChangePassword.Enabled = false;
+                btnChangePassword.Text = "Đang gửi...";
+
+                await _networkService.SendPacketAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.CHANGE_PASSWORD,
-                    PasswordHash = currentPass,
+                    Password = currentPass,
                     NewPasswordHash = newPass
-                };
+                });
 
-                string packetData = PacketHelper.EncodeToString(changePassPacket);
-                MessageBox.Show("Đã gửi yêu cầu đổi mật khẩu lên Server.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ProtocolPacket response = await _networkService.ReadPacketAsync();
 
-                txtCurrentPassword.Clear();
-                txtNewPassword.Clear();
-                txtConfirmPassword.Clear();
+                if (response.Command == PacketCommand.AUTH_RESP && response.Success)
+                {
+                    lblStatus.ForeColor = System.Drawing.Color.Green;
+                    lblStatus.Text = response.Message ?? "Đổi mật khẩu thành công.";
+                    txtCurrentPassword.Clear();
+                    txtNewPassword.Clear();
+                    txtConfirmPassword.Clear();
+                }
+                else
+                {
+                    lblStatus.ForeColor = System.Drawing.Color.Red;
+                    lblStatus.Text = response.Message ?? "Đổi mật khẩu thất bại.";
+                }
+            }
+            catch (SocketException)
+            {
+                lblStatus.ForeColor = System.Drawing.Color.Red;
+                lblStatus.Text = "Mất kết nối Server.";
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi gửi yêu cầu: {ex.Message}", "Lỗi hệ thống", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                lblStatus.ForeColor = System.Drawing.Color.Red;
+                lblStatus.Text = $"Lỗi: {ex.Message}";
+            }
+            finally
+            {
+                btnChangePassword.Enabled = true;
+                btnChangePassword.Text = "Đổi Mật Khẩu";
             }
         }
     }
