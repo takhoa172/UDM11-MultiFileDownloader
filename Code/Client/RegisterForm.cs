@@ -52,14 +52,12 @@ namespace Client
                 btnRegister.Enabled = false;
                 btnRegister.Text = "Đăng ký...";
 
-                await _networkService.SendPacketAsync(new ProtocolPacket
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.REGISTER,
                     Username = username,
                     PasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(password))
                 });
-
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
 
                 if (response.Command == PacketCommand.AUTH_RESP && response.Success)
                 {

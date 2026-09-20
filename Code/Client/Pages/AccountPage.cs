@@ -86,13 +86,11 @@ namespace Client.Pages
                 btnChangePassword.Enabled = false;
                 btnChangePassword.Text = "Đang gửi...";
 
-                await _networkService.SendPacketAsync(new ProtocolPacket
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.CHANGE_PASSWORD,
                     NewPasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(newPass))
                 });
-
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
 
                 if (response.Command == PacketCommand.AUTH_RESP && response.Success)
                 {

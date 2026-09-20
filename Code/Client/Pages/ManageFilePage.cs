@@ -270,8 +270,7 @@ namespace Client.Pages
         {
             try
             {
-                await _networkService.SendPacketAsync(new ProtocolPacket { Command = PacketCommand.GET_LIST });
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket { Command = PacketCommand.GET_LIST });
 
                 if (response.Command == PacketCommand.ERROR_RESP)
                     return;
@@ -339,14 +338,12 @@ namespace Client.Pages
 
             try
             {
-                await _networkService.SendPacketAsync(new ProtocolPacket
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.RENAME_FILE,
                     FileName = currentDisplayName,
                     NewFileName = newName
                 });
-
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
 
                 if (response.Command == PacketCommand.ERROR_RESP)
                 {
@@ -427,13 +424,11 @@ namespace Client.Pages
                 btnDelete.Enabled = false;
                 btnDelete.Text = "Dang xoa...";
 
-                await _networkService.SendPacketAsync(new ProtocolPacket
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.DELETE_FILE,
                     FileName = displayName
                 });
-
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
 
                 if (response.Command == PacketCommand.ERROR_RESP)
                 {

@@ -38,6 +38,7 @@ public static class PacketValidator
             case PacketCommand.RENAME_FILE:
             case PacketCommand.DELETE_FILE:
             case PacketCommand.SET_RATE_LIMIT:
+            case PacketCommand.LOGOUT:
                 return null;
             default:
                 return "400_BAD_COMMAND";
@@ -56,6 +57,14 @@ public static class PacketValidator
             return "400_INVALID_FILENAME";
 
         return null;
+    }
+
+    public static bool HasSameFileExtension(string oldFileName, string newFileName)
+    {
+        return string.Equals(
+            System.IO.Path.GetExtension(oldFileName),
+            System.IO.Path.GetExtension(newFileName),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     public static string? ValidateRegister(string? username, string? password)

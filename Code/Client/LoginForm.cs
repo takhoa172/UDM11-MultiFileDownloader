@@ -11,6 +11,7 @@ namespace Client
     {
         private readonly NetworkService _networkService;
         public string LoggedInUsername { get; private set; } = "";
+        public string LoggedInToken { get; private set; } = "";
 
         public LoginForm(NetworkService networkService)
         {
@@ -45,24 +46,25 @@ namespace Client
                 btnLogin.Enabled = false;
                 btnLogin.Text = "Đang đăng nhập...";
 
-                await _networkService.SendPacketAsync(new ProtocolPacket
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.LOGIN,
                     Username = username,
                     PasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(password))
                 });
 
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
-
                 if (response.Command == PacketCommand.AUTH_RESP && response.Success)
                 {
                     LoggedInUsername = username;
+                    LoggedInToken = response.Token ?? "";
                     DialogResult = DialogResult.OK;
                     Close();
                 }
                 else
                 {
-                    lblError.Text = response.Message ?? "Đăng nhập thất bại.";
+                    lblError.Text = response.ErrorCode == "409_SESSION_ACTIVE"
+                        ? "Tài khoản đang được đăng nhập trên thiết bị khác."
+                        : response.Message ?? "Đăng nhập thất bại.";
                     txtPassword.Clear();
                     txtPassword.Focus();
                 }

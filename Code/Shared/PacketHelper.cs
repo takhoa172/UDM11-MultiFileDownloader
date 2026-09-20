@@ -22,7 +22,8 @@ public enum PacketCommand
     RENAME_FILE,
     DELETE_FILE,
     SET_RATE_LIMIT,
-    SETTING_RESP
+    SETTING_RESP,
+    LOGOUT
 }
 
 public sealed class ProtocolPacket

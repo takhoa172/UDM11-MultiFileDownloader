@@ -10,6 +10,7 @@ public static class FileStreamer
         NetworkStream stream,
         string filePath,
         string fileName,
+        long requestedRateBytesPerSecond,
         CancellationToken cancellationToken)
     {
         if (!File.Exists(filePath))
@@ -22,6 +23,9 @@ public static class FileStreamer
 
             return;
         }
+
+        BandwidthSession session =
+            BandwidthManager.BeginSession(requestedRateBytesPerSecond);
 
         try
         {
@@ -74,7 +78,7 @@ public static class FileStreamer
                 string chunkBase64 =
                     PacketHelper.EncodeBinaryData(chunk);
 
-                await ServerConfig.DownloadLimiter.ThrottleAsync(chunk.Length);
+                await session.Limiter.ThrottleAsync(chunk.Length);
 
                 await SendPacketAsync(
                     stream,
@@ -134,6 +138,10 @@ public static class FileStreamer
                 stream,
                 error.ErrorCode,
                 error.Message);
+        }
+        finally
+        {
+            BandwidthManager.EndSession(session);
         }
     }
 

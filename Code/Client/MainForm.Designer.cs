@@ -18,23 +18,19 @@
         private void InitializeComponent()
         {
             pnlSidebar = new Panel();
-            lblSidebarTitle = new Label();
-            btnNavManageFile = new Button();
-            btnNavDownload = new Button();
             btnNavSetting = new Button();
+            btnNavDownload = new Button();
+            btnNavManageFile = new Button();
             pnlContent = new Panel();
             pnlDownloadPage = new Panel();
-            gbConnection = new GroupBox();
-            lblStatus = new Label();
-            btnRefreshServerList = new Button();
-            btnShowConnectDialog = new Button();
-            lblConnectedInfo = new Label();
+            tlpDownloadTables = new TableLayoutPanel();
             lblSaveFolder = new Label();
             txtSaveFolder = new TextBox();
             btnChooseFolder = new Button();
             gbServerFiles = new GroupBox();
-            pnlServerToolbar = new Panel();
             dgvServer = new DataGridView();
+            pnlServerToolbar = new Panel();
+            btnRefreshServerList = new Button();
             gbDownloads = new GroupBox();
             dgvDownload = new DataGridView();
             lblLastSaved = new Label();
@@ -54,6 +50,17 @@
             lblSettingsUsername = new Label();
             lblSettingsUsernameValue = new Label();
             btnChangePassword = new Button();
+            gbConnection = new GroupBox();
+            lblStatus = new Label();
+            lblConnectedInfo = new Label();
+            _lblServerIp = new Label();
+            _txtServerIp = new TextBox();
+            _lblServerPort = new Label();
+            _txtServerPort = new TextBox();
+            btnShowConnectDialog = new Button();
+            _btnDisconnect = new Button();
+            _btnSaveSettings = new Button();
+            _btnLogout = new Button();
             lblConcurrentDownloads = new Label();
             nudConcurrentDownloads = new NumericUpDown();
             lblSpeedLimit = new Label();
@@ -62,59 +69,49 @@
             pnlSidebar.SuspendLayout();
             pnlContent.SuspendLayout();
             pnlDownloadPage.SuspendLayout();
-            gbConnection.SuspendLayout();
+            tlpDownloadTables.SuspendLayout();
             gbServerFiles.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvServer).BeginInit();
+            pnlServerToolbar.SuspendLayout();
             gbDownloads.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvDownload).BeginInit();
             pnlManageFilePage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvManageFile).BeginInit();
             pnlManageFileToolbar.SuspendLayout();
             pnlSettingsPage.SuspendLayout();
+            gbConnection.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)nudConcurrentDownloads).BeginInit();
             SuspendLayout();
             // 
             // pnlSidebar
             // 
             pnlSidebar.BackColor = Color.FromArgb(30, 30, 60);
-            pnlSidebar.Controls.Add(lblSidebarTitle);
-            pnlSidebar.Controls.Add(btnNavManageFile);
-            pnlSidebar.Controls.Add(btnNavDownload);
             pnlSidebar.Controls.Add(btnNavSetting);
+            pnlSidebar.Controls.Add(btnNavDownload);
+            pnlSidebar.Controls.Add(btnNavManageFile);
             pnlSidebar.Dock = DockStyle.Left;
             pnlSidebar.Location = new Point(0, 0);
             pnlSidebar.Name = "pnlSidebar";
-            pnlSidebar.Size = new Size(180, 661);
+            pnlSidebar.Size = new Size(240, 661);
             pnlSidebar.TabIndex = 0;
             // 
-            // lblSidebarTitle
+            // btnNavSetting
             // 
-            lblSidebarTitle.Dock = DockStyle.Top;
-            lblSidebarTitle.Font = new Font("Segoe UI", 13F, FontStyle.Bold);
-            lblSidebarTitle.ForeColor = Color.White;
-            lblSidebarTitle.Location = new Point(0, 135);
-            lblSidebarTitle.Name = "lblSidebarTitle";
-            lblSidebarTitle.Size = new Size(180, 50);
-            lblSidebarTitle.TabIndex = 0;
-            lblSidebarTitle.Text = "UDM11";
-            lblSidebarTitle.TextAlign = ContentAlignment.MiddleCenter;
-            // 
-            // btnNavManageFile
-            // 
-            btnNavManageFile.BackColor = Color.FromArgb(30, 30, 60);
-            btnNavManageFile.Dock = DockStyle.Top;
-            btnNavManageFile.FlatAppearance.BorderSize = 0;
-            btnNavManageFile.FlatStyle = FlatStyle.Flat;
-            btnNavManageFile.Font = new Font("Segoe UI", 10F);
-            btnNavManageFile.ForeColor = Color.White;
-            btnNavManageFile.Location = new Point(0, 90);
-            btnNavManageFile.Name = "btnNavManageFile";
-            btnNavManageFile.Padding = new Padding(15, 0, 0, 0);
-            btnNavManageFile.Size = new Size(180, 45);
-            btnNavManageFile.TabIndex = 1;
-            btnNavManageFile.Text = "Manage File";
-            btnNavManageFile.TextAlign = ContentAlignment.MiddleLeft;
-            btnNavManageFile.UseVisualStyleBackColor = false;
-            btnNavManageFile.Click += btnNav_Click;
+            btnNavSetting.BackColor = Color.FromArgb(30, 30, 60);
+            btnNavSetting.Dock = DockStyle.Top;
+            btnNavSetting.FlatAppearance.BorderSize = 0;
+            btnNavSetting.FlatStyle = FlatStyle.Flat;
+            btnNavSetting.Font = new Font("Segoe UI", 10F);
+            btnNavSetting.ForeColor = Color.White;
+            btnNavSetting.Location = new Point(0, 90);
+            btnNavSetting.Name = "btnNavSetting";
+            btnNavSetting.Padding = new Padding(15, 0, 0, 0);
+            btnNavSetting.Size = new Size(240, 45);
+            btnNavSetting.TabIndex = 3;
+            btnNavSetting.Text = "Cài đặt";
+            btnNavSetting.TextAlign = ContentAlignment.MiddleLeft;
+            btnNavSetting.UseVisualStyleBackColor = false;
+            btnNavSetting.Click += btnNav_Click;
             // 
             // btnNavDownload
             // 
@@ -127,148 +124,98 @@
             btnNavDownload.Location = new Point(0, 45);
             btnNavDownload.Name = "btnNavDownload";
             btnNavDownload.Padding = new Padding(15, 0, 0, 0);
-            btnNavDownload.Size = new Size(180, 45);
+            btnNavDownload.Size = new Size(240, 45);
             btnNavDownload.TabIndex = 2;
-            btnNavDownload.Text = "Download";
+            btnNavDownload.Text = "Tải xuống";
             btnNavDownload.TextAlign = ContentAlignment.MiddleLeft;
             btnNavDownload.UseVisualStyleBackColor = false;
             btnNavDownload.Click += btnNav_Click;
             // 
-            // btnNavSetting
+            // btnNavManageFile
             // 
-            btnNavSetting.BackColor = Color.FromArgb(30, 30, 60);
-            btnNavSetting.Dock = DockStyle.Top;
-            btnNavSetting.FlatAppearance.BorderSize = 0;
-            btnNavSetting.FlatStyle = FlatStyle.Flat;
-            btnNavSetting.Font = new Font("Segoe UI", 10F);
-            btnNavSetting.ForeColor = Color.White;
-            btnNavSetting.Location = new Point(0, 0);
-            btnNavSetting.Name = "btnNavSetting";
-            btnNavSetting.Padding = new Padding(15, 0, 0, 0);
-            btnNavSetting.Size = new Size(180, 45);
-            btnNavSetting.TabIndex = 3;
-            btnNavSetting.Text = "Setting";
-            btnNavSetting.TextAlign = ContentAlignment.MiddleLeft;
-            btnNavSetting.UseVisualStyleBackColor = false;
-            btnNavSetting.Click += btnNav_Click;
+            btnNavManageFile.BackColor = Color.FromArgb(30, 30, 60);
+            btnNavManageFile.Dock = DockStyle.Top;
+            btnNavManageFile.FlatAppearance.BorderSize = 0;
+            btnNavManageFile.FlatStyle = FlatStyle.Flat;
+            btnNavManageFile.Font = new Font("Segoe UI", 10F);
+            btnNavManageFile.ForeColor = Color.White;
+            btnNavManageFile.Location = new Point(0, 0);
+            btnNavManageFile.Name = "btnNavManageFile";
+            btnNavManageFile.Padding = new Padding(15, 0, 0, 0);
+            btnNavManageFile.Size = new Size(240, 45);
+            btnNavManageFile.TabIndex = 1;
+            btnNavManageFile.Text = "Quản lý tệp";
+            btnNavManageFile.TextAlign = ContentAlignment.MiddleLeft;
+            btnNavManageFile.UseVisualStyleBackColor = false;
+            btnNavManageFile.Click += btnNav_Click;
             // 
             // pnlContent
             // 
+            pnlContent.AutoSize = true;
             pnlContent.Controls.Add(pnlDownloadPage);
             pnlContent.Controls.Add(pnlManageFilePage);
             pnlContent.Controls.Add(pnlSettingsPage);
             pnlContent.Dock = DockStyle.Fill;
-            pnlContent.Location = new Point(180, 0);
+            pnlContent.Location = new Point(240, 0);
             pnlContent.Name = "pnlContent";
-            pnlContent.Size = new Size(1004, 661);
+            pnlContent.Size = new Size(1014, 661);
             pnlContent.TabIndex = 1;
             // 
             // pnlDownloadPage
             // 
-            pnlDownloadPage.Controls.Add(gbConnection);
-            pnlDownloadPage.Controls.Add(gbServerFiles);
-            pnlDownloadPage.Controls.Add(gbDownloads);
+            pnlDownloadPage.Controls.Add(lblSaveFolder);
+            pnlDownloadPage.Controls.Add(txtSaveFolder);
+            pnlDownloadPage.Controls.Add(btnChooseFolder);
+            pnlDownloadPage.Controls.Add(tlpDownloadTables);
             pnlDownloadPage.Controls.Add(lblLastSaved);
             pnlDownloadPage.Controls.Add(lblDownloadStats);
             pnlDownloadPage.Controls.Add(txtNotification);
             pnlDownloadPage.Dock = DockStyle.Fill;
             pnlDownloadPage.Location = new Point(0, 0);
             pnlDownloadPage.Name = "pnlDownloadPage";
-            pnlDownloadPage.Size = new Size(1004, 661);
+            pnlDownloadPage.Size = new Size(1014, 661);
             pnlDownloadPage.TabIndex = 0;
-            // 
-            // gbConnection
-            // 
-            gbConnection.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            gbConnection.Controls.Add(lblStatus);
-            gbConnection.Controls.Add(btnShowConnectDialog);
-            gbConnection.Controls.Add(lblConnectedInfo);
-            gbConnection.Controls.Add(lblSaveFolder);
-            gbConnection.Controls.Add(txtSaveFolder);
-            gbConnection.Controls.Add(btnChooseFolder);
-            gbConnection.Location = new Point(12, 12);
-            gbConnection.Name = "gbConnection";
-            gbConnection.Size = new Size(980, 80);
-            gbConnection.TabIndex = 0;
-            gbConnection.TabStop = false;
-            gbConnection.Text = "Kết nối Server";
-            // 
-            // lblStatus
-            // 
-            lblStatus.AutoSize = true;
-            lblStatus.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
-            lblStatus.ForeColor = Color.Red;
-            lblStatus.Location = new Point(25, 30);
-            lblStatus.Name = "lblStatus";
-            lblStatus.Size = new Size(87, 17);
-            lblStatus.TabIndex = 0;
-            lblStatus.Text = "Chưa kết nối";
-            // 
-            // pnlServerToolbar
-            // 
-            pnlServerToolbar.Controls.Add(btnRefreshServerList);
-            pnlServerToolbar.Dock = DockStyle.Top;
-            pnlServerToolbar.Name = "pnlServerToolbar";
-            pnlServerToolbar.Size = new Size(394, 35);
-            pnlServerToolbar.TabIndex = 1;
-            // 
-            // btnRefreshServerList
-            // 
-            btnRefreshServerList.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnRefreshServerList.AutoSize = true;
-            btnRefreshServerList.FlatStyle = FlatStyle.Flat;
-            btnRefreshServerList.Location = new Point(300, 4);
-            btnRefreshServerList.Name = "btnRefreshServerList";
-            btnRefreshServerList.Size = new Size(80, 29);
-            btnRefreshServerList.TabIndex = 0;
-            btnRefreshServerList.Text = "Làm mới";
-            btnRefreshServerList.UseVisualStyleBackColor = true;
-            btnRefreshServerList.Click += btnRefreshServerList_Click;
-            // 
-            // btnShowConnectDialog
-            // 
-            btnShowConnectDialog.Location = new Point(25, 50);
-            btnShowConnectDialog.Name = "btnShowConnectDialog";
-            btnShowConnectDialog.Size = new Size(130, 25);
-            btnShowConnectDialog.TabIndex = 1;
-            btnShowConnectDialog.Text = "Kết nối Server";
-            btnShowConnectDialog.UseVisualStyleBackColor = true;
-            btnShowConnectDialog.Click += btnShowConnectDialog_Click;
-            // 
-            // lblConnectedInfo
-            // 
-            lblConnectedInfo.AutoSize = true;
-            lblConnectedInfo.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
-            lblConnectedInfo.ForeColor = Color.ForestGreen;
-            lblConnectedInfo.Location = new Point(170, 30);
-            lblConnectedInfo.Name = "lblConnectedInfo";
-            lblConnectedInfo.Size = new Size(0, 17);
-            lblConnectedInfo.TabIndex = 2;
-            lblConnectedInfo.Visible = false;
+            pnlDownloadPage.Paint += pnlDownloadPage_Paint;
+            //
+            // tlpDownloadTables
+            //
+            tlpDownloadTables.ColumnCount = 2;
+            tlpDownloadTables.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpDownloadTables.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpDownloadTables.Controls.Add(gbServerFiles, 0, 0);
+            tlpDownloadTables.Controls.Add(gbDownloads, 1, 0);
+            tlpDownloadTables.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            tlpDownloadTables.Location = new Point(12, 98);
+            tlpDownloadTables.Name = "tlpDownloadTables";
+            tlpDownloadTables.Padding = new Padding(0, 0, 8, 0);
+            tlpDownloadTables.RowCount = 1;
+            tlpDownloadTables.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tlpDownloadTables.Size = new Size(990, 440);
+            tlpDownloadTables.TabIndex = 6;
             // 
             // lblSaveFolder
             // 
             lblSaveFolder.AutoSize = true;
-            lblSaveFolder.Location = new Point(450, 28);
+            lblSaveFolder.Location = new Point(12, 8);
             lblSaveFolder.Name = "lblSaveFolder";
-            lblSaveFolder.Size = new Size(87, 17);
+            lblSaveFolder.Size = new Size(115, 23);
             lblSaveFolder.TabIndex = 3;
             lblSaveFolder.Text = "Thư mục lưu: ";
             // 
             // txtSaveFolder
             // 
-            txtSaveFolder.Location = new Point(450, 45);
+            txtSaveFolder.Location = new Point(12, 30);
             txtSaveFolder.Name = "txtSaveFolder";
             txtSaveFolder.ReadOnly = true;
-            txtSaveFolder.Size = new Size(430, 25);
+            txtSaveFolder.Size = new Size(520, 29);
             txtSaveFolder.TabIndex = 4;
             txtSaveFolder.TabStop = false;
             // 
             // btnChooseFolder
             // 
-            btnChooseFolder.Location = new Point(886, 43);
+            btnChooseFolder.Location = new Point(540, 28);
             btnChooseFolder.Name = "btnChooseFolder";
-            btnChooseFolder.Size = new Size(70, 27);
+            btnChooseFolder.Size = new Size(80, 27);
             btnChooseFolder.TabIndex = 5;
             btnChooseFolder.Text = "Chọn...";
             btnChooseFolder.UseVisualStyleBackColor = true;
@@ -276,38 +223,63 @@
             // 
             // gbServerFiles
             // 
-            gbServerFiles.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             gbServerFiles.Controls.Add(dgvServer);
             gbServerFiles.Controls.Add(pnlServerToolbar);
-            gbServerFiles.Location = new Point(12, 98);
+            gbServerFiles.Dock = DockStyle.Fill;
+            gbServerFiles.Margin = new Padding(0, 0, 6, 0);
+            gbServerFiles.Location = new Point(0, 0);
             gbServerFiles.Name = "gbServerFiles";
-            gbServerFiles.Size = new Size(400, 440);
+            gbServerFiles.Size = new Size(485, 440);
             gbServerFiles.TabIndex = 1;
             gbServerFiles.TabStop = false;
-            gbServerFiles.Text = "Danh sách File trên Server";
+            gbServerFiles.Text = "Danh sách tệp trên máy chủ";
             // 
             // dgvServer
             // 
             dgvServer.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvServer.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dgvServer.Dock = DockStyle.Fill;
-            dgvServer.Location = new Point(3, 21);
+            dgvServer.Location = new Point(3, 60);
             dgvServer.Name = "dgvServer";
             dgvServer.ReadOnly = true;
+            dgvServer.RowHeadersWidth = 51;
             dgvServer.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvServer.Size = new Size(394, 416);
+            dgvServer.Size = new Size(394, 377);
             dgvServer.TabIndex = 0;
-            // 
+            //
+            // pnlServerToolbar
+            //
+            pnlServerToolbar.Controls.Add(btnRefreshServerList);
+            pnlServerToolbar.Dock = DockStyle.Top;
+            pnlServerToolbar.Location = new Point(3, 25);
+            pnlServerToolbar.Name = "pnlServerToolbar";
+            pnlServerToolbar.Size = new Size(394, 35);
+            pnlServerToolbar.TabIndex = 1;
+            //
+            // btnRefreshServerList
+            //
+            btnRefreshServerList.AutoSize = true;
+            btnRefreshServerList.Dock = DockStyle.Right;
+            btnRefreshServerList.FlatStyle = FlatStyle.Flat;
+            btnRefreshServerList.Location = new Point(0, 0);
+            btnRefreshServerList.Name = "btnRefreshServerList";
+            btnRefreshServerList.Size = new Size(88, 35);
+            btnRefreshServerList.TabIndex = 0;
+            btnRefreshServerList.Text = "Làm mới";
+            btnRefreshServerList.UseVisualStyleBackColor = true;
+            btnRefreshServerList.Click += btnRefreshServerList_Click;
+            //
             // gbDownloads
-            // 
-            gbDownloads.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            //
             gbDownloads.Controls.Add(dgvDownload);
-            gbDownloads.Location = new Point(418, 98);
+            gbDownloads.Dock = DockStyle.Fill;
+            gbDownloads.Margin = new Padding(6, 0, 0, 0);
+            gbDownloads.Location = new Point(0, 0);
             gbDownloads.Name = "gbDownloads";
-            gbDownloads.Size = new Size(574, 440);
+            gbDownloads.Size = new Size(485, 440);
             gbDownloads.TabIndex = 2;
             gbDownloads.TabStop = false;
-            gbDownloads.Text = "Khu vực Download (Kéo thả file vào đây)";
+            gbDownloads.Text = "Khu vực tải xuống (Kéo thả tệp vào đây)";
             // 
             // dgvDownload
             // 
@@ -315,11 +287,12 @@
             dgvDownload.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvDownload.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dgvDownload.Dock = DockStyle.Fill;
-            dgvDownload.Location = new Point(3, 21);
+            dgvDownload.Location = new Point(3, 25);
             dgvDownload.Name = "dgvDownload";
             dgvDownload.ReadOnly = true;
+            dgvDownload.RowHeadersWidth = 51;
             dgvDownload.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvDownload.Size = new Size(568, 416);
+            dgvDownload.Size = new Size(578, 412);
             dgvDownload.TabIndex = 0;
             // 
             // lblLastSaved
@@ -329,9 +302,9 @@
             lblLastSaved.ForeColor = Color.ForestGreen;
             lblLastSaved.Location = new Point(12, 548);
             lblLastSaved.Name = "lblLastSaved";
-            lblLastSaved.Size = new Size(154, 17);
+            lblLastSaved.Size = new Size(200, 23);
             lblLastSaved.TabIndex = 3;
-            lblLastSaved.Text = "Đã lưu: (chưa có file nào)";
+            lblLastSaved.Text = "Đã lưu: (chưa có tệp nào)";
             // 
             // lblDownloadStats
             // 
@@ -340,9 +313,9 @@
             lblDownloadStats.ForeColor = Color.SteelBlue;
             lblDownloadStats.Location = new Point(200, 548);
             lblDownloadStats.Name = "lblDownloadStats";
-            lblDownloadStats.Size = new Size(174, 17);
+            lblDownloadStats.Size = new Size(225, 23);
             lblDownloadStats.TabIndex = 4;
-            lblDownloadStats.Text = "Tổng: 0 file | Đã tải: 0 | Lỗi: 0";
+            lblDownloadStats.Text = "Tổng: 0 tệp | Đã tải: 0 | Lỗi: 0";
             // 
             // txtNotification
             // 
@@ -354,7 +327,7 @@
             txtNotification.Name = "txtNotification";
             txtNotification.ReadOnly = true;
             txtNotification.ScrollBars = ScrollBars.Vertical;
-            txtNotification.Size = new Size(980, 70);
+            txtNotification.Size = new Size(990, 70);
             txtNotification.TabIndex = 5;
             txtNotification.TabStop = false;
             // 
@@ -366,7 +339,7 @@
             pnlManageFilePage.Dock = DockStyle.Fill;
             pnlManageFilePage.Location = new Point(0, 0);
             pnlManageFilePage.Name = "pnlManageFilePage";
-            pnlManageFilePage.Size = new Size(1004, 661);
+            pnlManageFilePage.Size = new Size(1014, 661);
             pnlManageFilePage.TabIndex = 1;
             pnlManageFilePage.Visible = false;
             // 
@@ -383,7 +356,7 @@
             dgvManageFile.ReadOnly = true;
             dgvManageFile.RowHeadersWidth = 51;
             dgvManageFile.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvManageFile.Size = new Size(1004, 571);
+            dgvManageFile.Size = new Size(1014, 571);
             dgvManageFile.TabIndex = 0;
             // 
             // pnlManageFileToolbar
@@ -397,15 +370,15 @@
             pnlManageFileToolbar.Dock = DockStyle.Top;
             pnlManageFileToolbar.Location = new Point(0, 40);
             pnlManageFileToolbar.Name = "pnlManageFileToolbar";
-            pnlManageFileToolbar.Size = new Size(1004, 50);
+            pnlManageFileToolbar.Size = new Size(1014, 50);
             pnlManageFileToolbar.TabIndex = 2;
             // 
             // txtSearchBox
             // 
             txtSearchBox.Location = new Point(10, 12);
             txtSearchBox.Name = "txtSearchBox";
-            txtSearchBox.PlaceholderText = "Tìm kiếm file...";
-            txtSearchBox.Size = new Size(260, 25);
+            txtSearchBox.PlaceholderText = "Tìm kiếm tệp...";
+            txtSearchBox.Size = new Size(260, 29);
             txtSearchBox.TabIndex = 0;
             txtSearchBox.TextChanged += txtSearchBox_TextChanged;
             // 
@@ -447,7 +420,7 @@
             // 
             btnUpload.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnUpload.FlatStyle = FlatStyle.Flat;
-            btnUpload.Location = new Point(894, 10);
+            btnUpload.Location = new Point(904, 10);
             btnUpload.Name = "btnUpload";
             btnUpload.Size = new Size(100, 30);
             btnUpload.TabIndex = 4;
@@ -462,9 +435,9 @@
             lblManageFileTitle.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
             lblManageFileTitle.Location = new Point(0, 0);
             lblManageFileTitle.Name = "lblManageFileTitle";
-            lblManageFileTitle.Size = new Size(1004, 40);
+            lblManageFileTitle.Size = new Size(1014, 40);
             lblManageFileTitle.TabIndex = 1;
-            lblManageFileTitle.Text = "  Manage File - Đã tải xong";
+            lblManageFileTitle.Text = "  Quản lý tệp - Đã tải xong";
             lblManageFileTitle.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // pnlSettingsPage
@@ -473,6 +446,9 @@
             pnlSettingsPage.Controls.Add(lblSettingsUsername);
             pnlSettingsPage.Controls.Add(lblSettingsUsernameValue);
             pnlSettingsPage.Controls.Add(btnChangePassword);
+            pnlSettingsPage.Controls.Add(gbConnection);
+            pnlSettingsPage.Controls.Add(_btnSaveSettings);
+            pnlSettingsPage.Controls.Add(_btnLogout);
             pnlSettingsPage.Controls.Add(lblConcurrentDownloads);
             pnlSettingsPage.Controls.Add(nudConcurrentDownloads);
             pnlSettingsPage.Controls.Add(lblSpeedLimit);
@@ -481,7 +457,7 @@
             pnlSettingsPage.Dock = DockStyle.Fill;
             pnlSettingsPage.Location = new Point(0, 0);
             pnlSettingsPage.Name = "pnlSettingsPage";
-            pnlSettingsPage.Size = new Size(1004, 661);
+            pnlSettingsPage.Size = new Size(1014, 661);
             pnlSettingsPage.TabIndex = 2;
             pnlSettingsPage.Visible = false;
             // 
@@ -492,7 +468,7 @@
             lblSettingsTitle.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
             lblSettingsTitle.Location = new Point(0, 0);
             lblSettingsTitle.Name = "lblSettingsTitle";
-            lblSettingsTitle.Size = new Size(1004, 40);
+            lblSettingsTitle.Size = new Size(1014, 40);
             lblSettingsTitle.TabIndex = 0;
             lblSettingsTitle.Text = "  Cài đặt";
             lblSettingsTitle.TextAlign = ContentAlignment.MiddleLeft;
@@ -503,7 +479,7 @@
             lblSettingsUsername.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             lblSettingsUsername.Location = new Point(30, 65);
             lblSettingsUsername.Name = "lblSettingsUsername";
-            lblSettingsUsername.Size = new Size(120, 19);
+            lblSettingsUsername.Size = new Size(92, 23);
             lblSettingsUsername.TabIndex = 1;
             lblSettingsUsername.Text = "Tài khoản:";
             // 
@@ -514,7 +490,7 @@
             lblSettingsUsernameValue.ForeColor = Color.ForestGreen;
             lblSettingsUsernameValue.Location = new Point(160, 65);
             lblSettingsUsernameValue.Name = "lblSettingsUsernameValue";
-            lblSettingsUsernameValue.Size = new Size(0, 19);
+            lblSettingsUsernameValue.Size = new Size(0, 23);
             lblSettingsUsernameValue.TabIndex = 2;
             // 
             // btnChangePassword
@@ -526,24 +502,134 @@
             btnChangePassword.TabIndex = 3;
             btnChangePassword.Text = "Đổi mật khẩu";
             btnChangePassword.UseVisualStyleBackColor = true;
-            // 
+            //
+            // gbConnection
+            //
+            gbConnection.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            gbConnection.Controls.Add(lblStatus);
+            gbConnection.Controls.Add(lblConnectedInfo);
+            gbConnection.Controls.Add(_lblServerIp);
+            gbConnection.Controls.Add(_txtServerIp);
+            gbConnection.Controls.Add(_lblServerPort);
+            gbConnection.Controls.Add(_txtServerPort);
+            gbConnection.Controls.Add(btnShowConnectDialog);
+            gbConnection.Controls.Add(_btnDisconnect);
+            gbConnection.Location = new Point(30, 140);
+            gbConnection.Name = "gbConnection";
+            gbConnection.Size = new Size(630, 145);
+            gbConnection.TabIndex = 0;
+            gbConnection.TabStop = false;
+            gbConnection.Text = "Kết nối máy chủ";
+            //
+            // lblStatus
+            //
+            lblStatus.AutoSize = true;
+            lblStatus.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
+            lblStatus.ForeColor = Color.Red;
+            lblStatus.Location = new Point(20, 28);
+            lblStatus.Name = "lblStatus";
+            lblStatus.Size = new Size(112, 23);
+            lblStatus.TabIndex = 0;
+            lblStatus.Text = "Chưa kết nối";
+            //
+            // lblConnectedInfo
+            //
+            lblConnectedInfo.AutoSize = true;
+            lblConnectedInfo.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
+            lblConnectedInfo.ForeColor = Color.ForestGreen;
+            lblConnectedInfo.Location = new Point(220, 28);
+            lblConnectedInfo.Name = "lblConnectedInfo";
+            lblConnectedInfo.Size = new Size(0, 23);
+            lblConnectedInfo.TabIndex = 2;
+            lblConnectedInfo.Visible = false;
+            //
+            // _lblServerIp
+            //
+            _lblServerIp.AutoSize = true;
+            _lblServerIp.Location = new Point(20, 58);
+            _lblServerIp.Name = "_lblServerIp";
+            _lblServerIp.Size = new Size(81, 23);
+            _lblServerIp.TabIndex = 3;
+            _lblServerIp.Text = "IP máy chủ:";
+            //
+            // _txtServerIp
+            //
+            _txtServerIp.Location = new Point(95, 55);
+            _txtServerIp.Name = "_txtServerIp";
+            _txtServerIp.Size = new Size(180, 29);
+            _txtServerIp.TabIndex = 4;
+            //
+            // _lblServerPort
+            //
+            _lblServerPort.AutoSize = true;
+            _lblServerPort.Location = new Point(305, 58);
+            _lblServerPort.Name = "_lblServerPort";
+            _lblServerPort.Size = new Size(45, 23);
+            _lblServerPort.TabIndex = 5;
+            _lblServerPort.Text = "Cổng:";
+            //
+            // _txtServerPort
+            //
+            _txtServerPort.Location = new Point(350, 55);
+            _txtServerPort.Name = "_txtServerPort";
+            _txtServerPort.Size = new Size(80, 29);
+            _txtServerPort.TabIndex = 6;
+            //
+            // btnShowConnectDialog
+            //
+            btnShowConnectDialog.Location = new Point(20, 92);
+            btnShowConnectDialog.Name = "btnShowConnectDialog";
+            btnShowConnectDialog.Size = new Size(140, 30);
+            btnShowConnectDialog.TabIndex = 1;
+            btnShowConnectDialog.Text = "Kết nối máy chủ";
+            btnShowConnectDialog.UseVisualStyleBackColor = true;
+            btnShowConnectDialog.Click += btnShowConnectDialog_Click;
+            //
+            // _btnDisconnect
+            //
+            _btnDisconnect.Location = new Point(175, 92);
+            _btnDisconnect.Name = "_btnDisconnect";
+            _btnDisconnect.Size = new Size(140, 30);
+            _btnDisconnect.TabIndex = 8;
+            _btnDisconnect.Text = "Ngắt kết nối";
+            _btnDisconnect.UseVisualStyleBackColor = true;
+            //
+            // _btnSaveSettings
+            //
+            _btnSaveSettings.Location = new Point(30, 400);
+            _btnSaveSettings.Name = "_btnSaveSettings";
+            _btnSaveSettings.Size = new Size(160, 32);
+            _btnSaveSettings.TabIndex = 9;
+            _btnSaveSettings.Text = "Lưu cài đặt";
+            _btnSaveSettings.UseVisualStyleBackColor = true;
+            //
+            // _btnLogout
+            //
+            _btnLogout.BackColor = Color.Red;
+            _btnLogout.Location = new Point(210, 400);
+            _btnLogout.Name = "_btnLogout";
+            _btnLogout.Size = new Size(160, 32);
+            _btnLogout.TabIndex = 10;
+            _btnLogout.Text = "Đăng xuất";
+            _btnLogout.UseVisualStyleBackColor = false;
+            //
             // lblConcurrentDownloads
-            // 
+            //
             lblConcurrentDownloads.AutoSize = true;
             lblConcurrentDownloads.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            lblConcurrentDownloads.Location = new Point(30, 160);
+            lblConcurrentDownloads.Location = new Point(30, 315);
             lblConcurrentDownloads.Name = "lblConcurrentDownloads";
-            lblConcurrentDownloads.Size = new Size(200, 19);
+            lblConcurrentDownloads.Size = new Size(177, 23);
             lblConcurrentDownloads.TabIndex = 4;
-            lblConcurrentDownloads.Text = "Số file tải đồng thời:";
+            lblConcurrentDownloads.Text = "Số tệp tải đồng thời:";
             // 
             // nudConcurrentDownloads
             // 
-            nudConcurrentDownloads.Location = new Point(250, 158);
+            nudConcurrentDownloads.Location = new Point(250, 313);
             nudConcurrentDownloads.Maximum = new decimal(new int[] { 5, 0, 0, 0 });
             nudConcurrentDownloads.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudConcurrentDownloads.Name = "nudConcurrentDownloads";
-            nudConcurrentDownloads.Size = new Size(80, 25);
+            nudConcurrentDownloads.Size = new Size(80, 29);
             nudConcurrentDownloads.TabIndex = 5;
             nudConcurrentDownloads.Value = new decimal(new int[] { 3, 0, 0, 0 });
             // 
@@ -551,9 +637,9 @@
             // 
             lblSpeedLimit.AutoSize = true;
             lblSpeedLimit.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            lblSpeedLimit.Location = new Point(30, 210);
+            lblSpeedLimit.Location = new Point(30, 355);
             lblSpeedLimit.Name = "lblSpeedLimit";
-            lblSpeedLimit.Size = new Size(180, 19);
+            lblSpeedLimit.Size = new Size(147, 23);
             lblSpeedLimit.TabIndex = 6;
             lblSpeedLimit.Text = "Tốc độ tải tối đa:";
             // 
@@ -562,24 +648,24 @@
             cmbSpeedLimit.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbSpeedLimit.FormattingEnabled = true;
             cmbSpeedLimit.Items.AddRange(new object[] { "1", "5", "10" });
-            cmbSpeedLimit.Location = new Point(250, 208);
+            cmbSpeedLimit.Location = new Point(250, 353);
             cmbSpeedLimit.Name = "cmbSpeedLimit";
-            cmbSpeedLimit.Size = new Size(80, 25);
+            cmbSpeedLimit.Size = new Size(80, 29);
             cmbSpeedLimit.TabIndex = 7;
             // 
             // lblSpeedUnit
             // 
             lblSpeedUnit.AutoSize = true;
             lblSpeedUnit.Font = new Font("Segoe UI", 10F);
-            lblSpeedUnit.Location = new Point(340, 210);
+            lblSpeedUnit.Location = new Point(340, 355);
             lblSpeedUnit.Name = "lblSpeedUnit";
-            lblSpeedUnit.Size = new Size(55, 19);
+            lblSpeedUnit.Size = new Size(49, 23);
             lblSpeedUnit.TabIndex = 8;
             lblSpeedUnit.Text = "MB/s";
             // 
             // MainForm
             // 
-            AutoScaleDimensions = new SizeF(7F, 17F);
+            AutoScaleDimensions = new SizeF(9F, 21F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1184, 661);
             Controls.Add(pnlContent);
@@ -593,14 +679,12 @@
             pnlSidebar.ResumeLayout(false);
             pnlContent.ResumeLayout(false);
             pnlDownloadPage.ResumeLayout(false);
+            tlpDownloadTables.ResumeLayout(false);
             pnlDownloadPage.PerformLayout();
-            gbConnection.ResumeLayout(false);
-            gbConnection.PerformLayout();
             gbServerFiles.ResumeLayout(false);
-            gbServerFiles.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvServer).EndInit();
             pnlServerToolbar.ResumeLayout(false);
             pnlServerToolbar.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)dgvServer).EndInit();
             gbDownloads.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvDownload).EndInit();
             pnlManageFilePage.ResumeLayout(false);
@@ -609,7 +693,11 @@
             pnlManageFileToolbar.PerformLayout();
             pnlSettingsPage.ResumeLayout(false);
             pnlSettingsPage.PerformLayout();
+            gbConnection.ResumeLayout(false);
+            gbConnection.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudConcurrentDownloads).EndInit();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -621,6 +709,7 @@
         private Button btnNavSetting;
         private Panel pnlContent;
         private Panel pnlDownloadPage;
+        private TableLayoutPanel tlpDownloadTables;
         private Panel pnlManageFilePage;
         private GroupBox gbConnection;
         private Label lblStatus;
@@ -651,6 +740,13 @@
         private Label lblSettingsUsername;
         private Label lblSettingsUsernameValue;
         private Button btnChangePassword;
+        private Label _lblServerIp;
+        private Label _lblServerPort;
+        private TextBox _txtServerIp;
+        private TextBox _txtServerPort;
+        private Button _btnDisconnect;
+        private Button _btnSaveSettings;
+        private Button _btnLogout;
         private Label lblConcurrentDownloads;
         private NumericUpDown nudConcurrentDownloads;
         private Label lblSpeedLimit;

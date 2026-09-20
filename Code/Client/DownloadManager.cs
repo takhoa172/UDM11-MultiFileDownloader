@@ -48,6 +48,8 @@ namespace Client.Logic
             string serverIp,
             int serverPort,
             string saveDirectory,
+            string username,
+            string sessionToken,
             IProgress<DownloadProgressModel>? progress = null,
             FileConflictMode conflictMode = FileConflictMode.AutoRename)
         {
@@ -78,7 +80,10 @@ namespace Client.Logic
                 await writer.WriteLineAsync(PacketHelper.EncodeToString(new ProtocolPacket
                 {
                     Command = PacketCommand.DOWNLOAD_REQ,
-                    FileName = fileName
+                    FileName = fileName,
+                    Username = username,
+                    Token = sessionToken,
+                    RequestedRateBytesPerSecond = _settings.Network.RequestedRateMBps * 1024L * 1024
                 }));
 
                 long currentDownloadedBytes = downloadedBytes;
