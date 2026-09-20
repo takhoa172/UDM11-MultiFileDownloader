@@ -31,15 +31,13 @@ namespace Client.Logic
                 ? 0
                 : (int)Math.Ceiling((double)fileInfo.Length / BufferSize);
 
-            await networkService.SendPacketAsync(new ProtocolPacket
+            ProtocolPacket ready = await networkService.RequestAsync(new ProtocolPacket
             {
                 Command = PacketCommand.UPLOAD_REQ,
                 FileName = fileInfo.Name,
                 TotalSize = fileInfo.Length,
                 TotalChunks = totalChunks
             });
-
-            ProtocolPacket ready = await networkService.ReadPacketAsync();
             if (ready.Command == PacketCommand.ERROR_RESP || !ready.Success)
             {
                 return false;
@@ -67,7 +65,7 @@ namespace Client.Logic
                     totalBytesRead += bytesRead;
                     bool isLastChunk = totalBytesRead == fileInfo.Length;
 
-                    await networkService.SendPacketAsync(new ProtocolPacket
+                    ProtocolPacket chunkAck = await networkService.RequestAsync(new ProtocolPacket
                     {
                         Command = PacketCommand.UPLOAD_CHUNK,
                         FileName = actualName,
@@ -76,8 +74,6 @@ namespace Client.Logic
                         TotalChunks = totalChunks,
                         IsLastChunk = isLastChunk
                     });
-
-                    ProtocolPacket chunkAck = await networkService.ReadPacketAsync();
                     if (chunkAck.Command == PacketCommand.ERROR_RESP || !chunkAck.Success)
                     {
                         return false;
@@ -90,13 +86,11 @@ namespace Client.Logic
                 }
             }
 
-            await networkService.SendPacketAsync(new ProtocolPacket
+            ProtocolPacket result = await networkService.RequestAsync(new ProtocolPacket
             {
                 Command = PacketCommand.UPLOAD_DONE,
                 FileName = actualName
             });
-
-            ProtocolPacket result = await networkService.ReadPacketAsync();
             if (result.Command == PacketCommand.ERROR_RESP || !result.Success)
             {
                 return false;

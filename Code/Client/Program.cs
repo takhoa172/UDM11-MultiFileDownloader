@@ -14,32 +14,56 @@ namespace Client
             {
                 ApplicationConfiguration.Initialize();
 
-                using var networkService = new NetworkService();
+                string serverIp = ClientConfig.Settings.Network.ServerIp;
+                int serverPort = ClientConfig.Settings.Network.ServerPort;
+                bool showConnectionDialog = true;
 
-                using (var connForm = new ConnectionForm())
+                while (true)
                 {
-                    if (connForm.ShowDialog() != DialogResult.OK)
-                        return;
+                    if (showConnectionDialog)
+                    {
+                        using var connForm = new ConnectionForm();
+                        if (connForm.ShowDialog() != DialogResult.OK)
+                            return;
+
+                        serverIp = connForm.ServerIp;
+                        serverPort = connForm.ServerPort;
+                    }
+
+                    using var networkService = new NetworkService();
 
                     try
                     {
-                        networkService.ConnectAsync(connForm.ServerIp, connForm.ServerPort)
+                        networkService.ConnectAsync(serverIp, serverPort)
                             .GetAwaiter().GetResult();
                     }
                     catch (SocketException ex)
                     {
-                        MessageBox.Show($"Không kết nối được Server: {ex.Message}",
-                            "Lỗi Kết Nối", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        if (!showConnectionDialog)
+                        {
+                            showConnectionDialog = true;
+                            continue;
+                        }
+
+                        MessageBox.Show($"Không kết nối được máy chủ: {ex.Message}",
+                            "Lỗi kết nối", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
                     catch (OperationCanceledException)
                     {
+                        if (!showConnectionDialog)
+                        {
+                            showConnectionDialog = true;
+                            continue;
+                        }
+
                         MessageBox.Show("Hết thời gian kết nối.",
-                            "Timeout", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            "Hết thời gian", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
                     string loggedUsername = "";
+                    string loggedToken = "";
 
                     using (var loginForm = new LoginForm(networkService))
                     {
@@ -49,9 +73,25 @@ namespace Client
                             return;
                         }
                         loggedUsername = loginForm.LoggedInUsername;
+                        loggedToken = loginForm.LoggedInToken;
                     }
 
-                    Application.Run(new MainForm(networkService, connForm.ServerIp, connForm.ServerPort, loggedUsername));
+                    using var mainForm = new MainForm(
+                        networkService,
+                        serverIp,
+                        serverPort,
+                        loggedUsername,
+                        loggedToken);
+
+                    Application.Run(mainForm);
+
+                    if (!mainForm.LogoutRequested)
+                        return;
+
+                    // Logout requested: reconnect to the last endpoint and show Login again.
+                    serverIp = ClientConfig.Settings.Network.ServerIp;
+                    serverPort = ClientConfig.Settings.Network.ServerPort;
+                    showConnectionDialog = false;
                 }
             }
             catch (Exception ex)

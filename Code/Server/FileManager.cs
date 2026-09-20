@@ -27,6 +27,13 @@ public static class FileManager
                 "Tên file mới không hợp lệ.");
         }
 
+        if (!PacketValidator.HasSameFileExtension(oldFileName!, newFileName!))
+        {
+            return CreateError(
+                "400_EXTENSION_CHANGE",
+                "Khong duoc thay doi dinh dang file.");
+        }
+
         string oldPath = Path.Combine(
             storagePath,
             oldFileName!);

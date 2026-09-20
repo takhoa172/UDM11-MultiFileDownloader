@@ -48,6 +48,8 @@ namespace Client.Logic
             string serverIp,
             int serverPort,
             string saveDirectory,
+            string username,
+            string sessionToken,
             IProgress<DownloadProgressModel>? progress = null,
             FileConflictMode conflictMode = FileConflictMode.AutoRename)
         {
@@ -79,6 +81,8 @@ namespace Client.Logic
                 {
                     Command = PacketCommand.DOWNLOAD_REQ,
                     FileName = fileName,
+                    Username = username,
+                    Token = sessionToken,
                     RequestedRateBytesPerSecond = _settings.Network.RequestedRateMBps * 1024L * 1024
                 }));
 

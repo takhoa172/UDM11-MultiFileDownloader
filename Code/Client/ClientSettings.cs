@@ -55,9 +55,11 @@ namespace Client
 
     public sealed class NetworkSection
     {
+        public string ServerIp { get; set; } = "127.0.0.1";
+        public int ServerPort { get; set; } = 8080;
         public int RequestedRateMBps { get; set; } = 5; // Tùy chọn tốc độ 1, 5, hoặc 10 MB/s
         public int ConnectTimeoutMs { get; set; } = 5000;
-        public int ReadTimeoutMs { get; set; } = 30000;
+        public int ReadTimeoutMs { get; set; } = 300000;
         public int WriteTimeoutMs { get; set; } = 30000;
     }
 }

@@ -23,6 +23,7 @@ namespace Client.Pages
         private int _serverPort;
         private string _downloadFolder;
         private string _username;
+        private string _sessionToken = "";
         private bool _isConnected;
 
         public event EventHandler? ConnectRequested;
@@ -69,12 +70,18 @@ namespace Client.Pages
             txtSaveFolder.Text = _downloadFolder;
         }
 
-        public void SetConnectionState(bool isConnected, string serverIp, int serverPort, string username)
+        public void SetConnectionState(
+            bool isConnected,
+            string serverIp,
+            int serverPort,
+            string username,
+            string sessionToken = "")
         {
             _isConnected = isConnected;
             _serverIp = serverIp;
             _serverPort = serverPort;
             _username = username;
+            _sessionToken = sessionToken;
 
             if (InvokeRequired)
             {
@@ -134,8 +141,7 @@ namespace Client.Pages
 
             try
             {
-                await _networkService.SendPacketAsync(new ProtocolPacket { Command = PacketCommand.GET_LIST });
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket { Command = PacketCommand.GET_LIST });
 
                 if (response.Command == PacketCommand.ERROR_RESP) return;
 
@@ -237,6 +243,8 @@ namespace Client.Pages
                 _serverIp,
                 _serverPort,
                 _downloadFolder,
+                _username,
+                _sessionToken,
                 progress,
                 conflictMode);
 

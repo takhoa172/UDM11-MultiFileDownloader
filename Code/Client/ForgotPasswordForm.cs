@@ -76,14 +76,12 @@ namespace Client
                 btnReset.Enabled = false;
                 btnReset.Text = "Đang đặt lại...";
 
-                await _networkService.SendPacketAsync(new ProtocolPacket
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.CHANGE_PASSWORD,
                     Username = _verifiedUsername,
                     NewPasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(newPassword))
                 });
-
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
 
                 if (response.Command == PacketCommand.AUTH_RESP && response.Success)
                 {

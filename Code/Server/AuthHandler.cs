@@ -5,7 +5,10 @@ namespace Server;
 
 public static class AuthHandler
 {
-    public static async Task HandleAsync(NetworkStream stream, ProtocolPacket request)
+    public static async Task HandleAsync(
+        NetworkStream stream,
+        ProtocolPacket request,
+        ClientSessionContext session)
     {
         switch (request.Command)
         {
@@ -13,10 +16,13 @@ public static class AuthHandler
                 await HandleRegisterAsync(stream, request);
                 break;
             case PacketCommand.LOGIN:
-                await HandleLoginAsync(stream, request);
+                await HandleLoginAsync(stream, request, session);
                 break;
             case PacketCommand.CHANGE_PASSWORD:
                 await HandleChangePasswordAsync(stream, request);
+                break;
+            case PacketCommand.LOGOUT:
+                await HandleLogoutAsync(stream, session);
                 break;
             default:
                 await SendAuthResponseAsync(stream, false, "400_BAD_COMMAND", null);
@@ -40,7 +46,10 @@ public static class AuthHandler
             ok ? "Dang ky thanh cong." : "Ten dang nhap da ton tai.", null);
     }
 
-    private static async Task HandleLoginAsync(NetworkStream stream, ProtocolPacket request)
+    private static async Task HandleLoginAsync(
+        NetworkStream stream,
+        ProtocolPacket request,
+        ClientSessionContext session)
     {
         string? error = PacketValidator.ValidateLogin(request.Username, request.PasswordHash);
         if (error != null)
@@ -52,7 +61,27 @@ public static class AuthHandler
         bool ok = UserStore.ValidateLogin(request.Username!, request.PasswordHash!);
         ServerLogger.LogInfo($"[AUTH] Dang nhap '{request.Username}' - {(ok ? "OK" : "FAIL")}");
 
-        string? token = ok ? Guid.NewGuid().ToString("N") : null;
+        string? token = null;
+        if (ok)
+        {
+            if (!SessionManager.TryStart(request.Username!, session.ConnectionId, out string createdToken))
+            {
+                ServerLogger.LogInfo(
+                    $"[AUTH] Dang nhap '{request.Username}' - FAIL (tai khoan dang co phien)");
+
+                await SendAuthResponseAsync(
+                    stream,
+                    false,
+                    "Tài khoản đang được đăng nhập trên thiết bị khác.",
+                    null,
+                    "409_SESSION_ACTIVE");
+                return;
+            }
+
+            token = createdToken;
+            session.Username = request.Username!.Trim();
+            session.Token = token;
+        }
 
         await SendAuthResponseAsync(stream, ok,
             ok ? "Dang nhap thanh cong." : "Sai ten dang nhap hoac mat khau.", token);
@@ -87,15 +116,44 @@ public static class AuthHandler
             ok ? "Doi mat khau thanh cong." : "Khong tim thay nguoi dung.", null);
     }
 
+    private static async Task HandleLogoutAsync(
+        NetworkStream stream,
+        ClientSessionContext session)
+    {
+        if (string.IsNullOrWhiteSpace(session.Username))
+        {
+            await SendAuthResponseAsync(
+                stream,
+                false,
+                "Phien dang nhap khong ton tai.",
+                null,
+                "401_NOT_AUTHENTICATED");
+            return;
+        }
+
+        string username = session.Username;
+        SessionManager.End(session.ConnectionId);
+        session.Username = null;
+        session.Token = null;
+
+        ServerLogger.LogInfo($"[AUTH] Dang xuat '{username}' - OK");
+        await SendAuthResponseAsync(stream, true, "Dang xuat thanh cong.", null);
+    }
+
     private static async Task SendAuthResponseAsync(
-        NetworkStream stream, bool success, string message, string? token)
+        NetworkStream stream,
+        bool success,
+        string message,
+        string? token,
+        string? errorCode = null)
     {
         byte[] data = PacketHelper.Encode(new ProtocolPacket
         {
             Command = PacketCommand.AUTH_RESP,
             Success = success,
             Message = message,
-            Token = token
+            Token = token,
+            ErrorCode = errorCode
         });
 
         using CancellationTokenSource cts =

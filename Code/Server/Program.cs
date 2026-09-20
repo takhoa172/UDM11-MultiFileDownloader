@@ -66,6 +66,10 @@ static async Task HandleClientAsync(TcpClient client)
     bool connectionCounted = false;
 
     bool isMainConnection = false;
+    bool isDownloadConnection = false;
+
+    string connectionId = Guid.NewGuid().ToString("N");
+    ClientSessionContext session = new(connectionId);
 
     UploadHandler? uploadHandler = null;
 
@@ -102,6 +106,9 @@ static async Task HandleClientAsync(TcpClient client)
 
                 if (line is null)
                 {
+                    ServerLogger.LogInfo(isDownloadConnection
+                        ? $"[{clientIp}] Download connection dong sau khi xu ly request."
+                        : $"[{clientIp}] Client chu dong dong ket noi.");
                     break;
                 }
 
@@ -184,11 +191,15 @@ static async Task HandleClientAsync(TcpClient client)
                         $"[{clientIp}] Nhan lenh {request.Command}");
                 }
 
+                if (request.Command == PacketCommand.DOWNLOAD_REQ)
+                    isDownloadConnection = true;
+
                 uploadHandler = await ProcessRequestAsync(
                     stream,
                     request,
                     clientIp,
-                    uploadHandler);
+                    uploadHandler,
+                    session);
             }
         }
     }
@@ -215,6 +226,7 @@ static async Task HandleClientAsync(TcpClient client)
     finally
     {
         uploadHandler?.Dispose();
+        SessionManager.End(connectionId);
 
         if (connectionCounted && isMainConnection)
         {
@@ -230,10 +242,48 @@ static async Task<UploadHandler?> ProcessRequestAsync(
     NetworkStream stream,
     ProtocolPacket request,
     string clientIp,
-    UploadHandler? uploadHandler)
+    UploadHandler? uploadHandler,
+    ClientSessionContext session)
 {
     try
     {
+        if (request.Command == PacketCommand.DOWNLOAD_REQ &&
+            string.IsNullOrWhiteSpace(session.Username) &&
+            SessionManager.TryValidateToken(
+                request.Username,
+                request.Token,
+                out string downloadUsername))
+        {
+            // DownloadManager uses short-lived connections. Authorize them
+            // with the main login token without creating a second account session.
+            session.Username = downloadUsername;
+            session.Token = request.Token;
+        }
+
+        if (RequiresAuthenticatedSession(request.Command) &&
+            string.IsNullOrWhiteSpace(session.Username))
+        {
+            await SendPacketAsync(stream, new ProtocolPacket
+            {
+                Command = PacketCommand.ERROR_RESP,
+                ErrorCode = "401_NOT_AUTHENTICATED",
+                Message = "Vui long dang nhap truoc."
+            });
+            return uploadHandler;
+        }
+
+        if (request.Command == PacketCommand.CHANGE_PASSWORD &&
+            !string.Equals(request.Username, session.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            await SendPacketAsync(stream, new ProtocolPacket
+            {
+                Command = PacketCommand.ERROR_RESP,
+                ErrorCode = "403_SESSION_USER_MISMATCH",
+                Message = "Phien dang nhap khong hop le."
+            });
+            return uploadHandler;
+        }
+
         switch (request.Command)
         {
             case PacketCommand.GET_LIST:
@@ -305,7 +355,8 @@ static async Task<UploadHandler?> ProcessRequestAsync(
             case PacketCommand.REGISTER:
             case PacketCommand.LOGIN:
             case PacketCommand.CHANGE_PASSWORD:
-                await AuthHandler.HandleAsync(stream, request);
+            case PacketCommand.LOGOUT:
+                await AuthHandler.HandleAsync(stream, request, session);
                 break;
 
             case PacketCommand.UPLOAD_REQ:
@@ -407,6 +458,22 @@ static async Task<UploadHandler?> ProcessRequestAsync(
     }
 
     return uploadHandler;
+}
+
+static bool RequiresAuthenticatedSession(PacketCommand command)
+{
+    return command is
+        PacketCommand.GET_LIST or
+        PacketCommand.PING or
+        PacketCommand.DOWNLOAD_REQ or
+        PacketCommand.UPLOAD_REQ or
+        PacketCommand.UPLOAD_CHUNK or
+        PacketCommand.UPLOAD_DONE or
+        PacketCommand.RENAME_FILE or
+        PacketCommand.DELETE_FILE or
+        PacketCommand.SET_RATE_LIMIT or
+        PacketCommand.CHANGE_PASSWORD or
+        PacketCommand.LOGOUT;
 }
 
 // ─────────────────────────────────────────────────────────────

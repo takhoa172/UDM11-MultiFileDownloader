@@ -11,6 +11,8 @@ namespace Client
         public ConnectionForm()
         {
             InitializeComponent();
+            txtIp.Text = ClientConfig.Settings.Network.ServerIp;
+            txtPort.Text = ClientConfig.Settings.Network.ServerPort.ToString();
             txtIp.Focus();
             txtIp.SelectAll();
         }
@@ -40,7 +42,7 @@ namespace Client
 
             if (!int.TryParse(portText, out int port) || port <= 0 || port > 65535)
             {
-                lblError.Text = "Port phải từ 1 đến 65535!";
+                lblError.Text = "Cổng phải từ 1 đến 65535!";
                 txtPort.Focus();
                 txtPort.SelectAll();
                 return;

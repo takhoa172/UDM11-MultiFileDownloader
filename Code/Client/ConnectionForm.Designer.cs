@@ -34,7 +34,7 @@ namespace Client
             lblTitle.Name = "lblTitle";
             lblTitle.Size = new Size(360, 25);
             lblTitle.TabIndex = 0;
-            lblTitle.Text = "Kết nối đến Server";
+            lblTitle.Text = "Kết nối đến máy chủ";
             // 
             // lblIp
             // 
@@ -43,7 +43,7 @@ namespace Client
             lblIp.Name = "lblIp";
             lblIp.Size = new Size(62, 17);
             lblIp.TabIndex = 1;
-            lblIp.Text = "IP Server:";
+            lblIp.Text = "IP máy chủ:";
             // 
             // txtIp
             // 
@@ -60,7 +60,7 @@ namespace Client
             lblPort.Name = "lblPort";
             lblPort.Size = new Size(35, 17);
             lblPort.TabIndex = 3;
-            lblPort.Text = "Port:";
+            lblPort.Text = "Cổng:";
             // 
             // txtPort
             // 
@@ -121,7 +121,7 @@ namespace Client
             MinimizeBox = false;
             Name = "ConnectionForm";
             StartPosition = FormStartPosition.CenterParent;
-            Text = "Kết nối Server";
+            Text = "Kết nối máy chủ";
             ResumeLayout(false);
             PerformLayout();
         }

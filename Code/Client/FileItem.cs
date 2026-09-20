@@ -96,7 +96,7 @@ namespace Client
 
         public string StatusText => Status switch
         {
-            DownloadStatus.Pending => "Chờ slot...",
+            DownloadStatus.Pending => "Đang chờ...",
             DownloadStatus.Downloading => "Đang tải",
             DownloadStatus.Completed => "Hoàn thành",
             DownloadStatus.Error => "Lỗi",

@@ -90,15 +90,13 @@ namespace Client
             {
                 btnOk.Enabled = false;
 
-                await _networkService.SendPacketAsync(new ProtocolPacket
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket
                 {
                     Command = PacketCommand.CHANGE_PASSWORD,
                     Username = _username,
                     PasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(oldPass)),
                     NewPasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(newPass))
                 });
-
-                ProtocolPacket response = await _networkService.ReadPacketAsync();
 
                 if (response.Command == PacketCommand.AUTH_RESP && response.Success)
                 {
