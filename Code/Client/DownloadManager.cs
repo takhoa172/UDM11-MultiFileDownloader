@@ -51,7 +51,8 @@ namespace Client.Logic
             string username,
             string sessionToken,
             IProgress<DownloadProgressModel>? progress = null,
-            FileConflictMode conflictMode = FileConflictMode.AutoRename)
+            FileConflictMode conflictMode = FileConflictMode.AutoRename,
+            CancellationToken cancellationToken = default)
         {
             await _semaphore.WaitAsync();
 
@@ -71,7 +72,7 @@ namespace Client.Logic
                 }
 
                 using var client = new TcpClient();
-                await client.ConnectAsync(serverIp, serverPort);
+                await client.ConnectAsync(serverIp, serverPort, cancellationToken);
 
                 using var stream = client.GetStream();
                 using var reader = new StreamReader(stream);
@@ -94,7 +95,7 @@ namespace Client.Logic
                 {
                     while (true)
                     {
-                        string? line = await reader.ReadLineAsync();
+                        string? line = await reader.ReadLineAsync(cancellationToken);
                         if (line == null) throw new IOException("Server đóng kết nối.");
 
                         ProtocolPacket packet = PacketHelper.Decode(line);
@@ -113,7 +114,7 @@ namespace Client.Logic
                         if (!string.IsNullOrEmpty(packet.DataBase64))
                         {
                             byte[] chunk = Convert.FromBase64String(packet.DataBase64);
-                            await fileStream.WriteAsync(chunk, 0, chunk.Length);
+                            await fileStream.WriteAsync(chunk.AsMemory(), cancellationToken);
 
                             currentDownloadedBytes += chunk.Length;
                             if (packet.TotalSize > 0) totalBytes = packet.TotalSize;
@@ -151,6 +152,11 @@ namespace Client.Logic
                 if (!hashOk) return new DownloadResult { Status = DownloadStatusResult.Error, Message = "File hỏng: hash không khớp." };
 
                 return new DownloadResult { Status = DownloadStatusResult.Completed, SavedPath = filePath };
+            }
+            catch (OperationCanceledException)
+            {
+                TryDeleteFile(filePath);
+                return new DownloadResult { Status = DownloadStatusResult.Error, Message = "Đã hủy tải." };
             }
             catch (Exception ex)
             {

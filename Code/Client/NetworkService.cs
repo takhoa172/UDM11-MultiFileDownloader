@@ -18,9 +18,6 @@ namespace Client
         private StreamReader? _reader;
         private readonly SemaphoreSlim _requestLock = new(1, 1);
 
-        public bool IsConnected =>
-            _client != null && _client.Connected;
-
         public Socket? ClientSocket => _client?.Client;
 
         public async Task ConnectAsync(string ip, int port)

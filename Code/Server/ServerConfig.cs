@@ -10,9 +10,6 @@ public static class ServerConfig
     public static int BufferSize => Settings.Transfer.BufferSize;
     public static long TotalBytesPerSecond => Settings.RateLimit.TotalBytesPerSecond;
 
-    public static readonly RateLimiter DownloadLimiter =
-        new RateLimiter(Settings.RateLimit.BytesPerSecond, Settings.RateLimit.MaxBurstBytes);
-
     public static string ProjectRoot { get; } = FindProjectRoot();
 
     public static string StoragePath { get; } =
