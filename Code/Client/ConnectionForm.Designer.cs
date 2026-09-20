@@ -47,7 +47,7 @@ namespace Client
             // 
             // txtIp
             // 
-            txtIp.Location = new Point(110, 57);
+            txtIp.Location = new Point(170, 57);
             txtIp.Name = "txtIp";
             txtIp.Size = new Size(150, 25);
             txtIp.TabIndex = 2;
@@ -56,7 +56,7 @@ namespace Client
             // lblPort
             // 
             lblPort.AutoSize = true;
-            lblPort.Location = new Point(280, 60);
+            lblPort.Location = new Point(350, 60);
             lblPort.Name = "lblPort";
             lblPort.Size = new Size(35, 17);
             lblPort.TabIndex = 3;
@@ -64,7 +64,7 @@ namespace Client
             // 
             // txtPort
             // 
-            txtPort.Location = new Point(320, 57);
+            txtPort.Location = new Point(400, 57);
             txtPort.Name = "txtPort";
             txtPort.Size = new Size(60, 25);
             txtPort.TabIndex = 4;
@@ -75,13 +75,13 @@ namespace Client
             lblError.ForeColor = Color.Red;
             lblError.Location = new Point(30, 90);
             lblError.Name = "lblError";
-            lblError.Size = new Size(350, 20);
+            lblError.Size = new Size(400, 20);
             lblError.TabIndex = 5;
             lblError.Text = "";
             // 
             // btnConnect
             // 
-            btnConnect.Location = new Point(200, 120);
+            btnConnect.Location = new Point(210, 120);
             btnConnect.Name = "btnConnect";
             btnConnect.Size = new Size(90, 32);
             btnConnect.TabIndex = 6;
@@ -92,7 +92,7 @@ namespace Client
             // btnCancel
             // 
             btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(300, 120);
+            btnCancel.Location = new Point(310, 120);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(80, 32);
             btnCancel.TabIndex = 7;
@@ -106,7 +106,7 @@ namespace Client
             CancelButton = btnCancel;
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(410, 165);
+            ClientSize = new Size(490, 165);
             Controls.Add(lblTitle);
             Controls.Add(lblIp);
             Controls.Add(txtIp);

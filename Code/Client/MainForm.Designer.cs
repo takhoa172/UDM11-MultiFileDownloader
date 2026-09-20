@@ -50,9 +50,9 @@
             lblSettingsUsername = new Label();
             lblSettingsUsernameValue = new Label();
             btnChangePassword = new Button();
-            gbConnection = new GroupBox();
+            gbConnection = new Panel();
+            lblConnectionTitle = new Label();
             lblStatus = new Label();
-            lblConnectedInfo = new Label();
             _lblServerIp = new Label();
             _txtServerIp = new TextBox();
             _lblServerPort = new Label();
@@ -506,20 +506,28 @@
             // gbConnection
             //
             gbConnection.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            gbConnection.Controls.Add(lblConnectionTitle);
             gbConnection.Controls.Add(lblStatus);
-            gbConnection.Controls.Add(lblConnectedInfo);
             gbConnection.Controls.Add(_lblServerIp);
             gbConnection.Controls.Add(_txtServerIp);
             gbConnection.Controls.Add(_lblServerPort);
             gbConnection.Controls.Add(_txtServerPort);
-            gbConnection.Controls.Add(btnShowConnectDialog);
             gbConnection.Controls.Add(_btnDisconnect);
+            gbConnection.Controls.Add(btnShowConnectDialog);
             gbConnection.Location = new Point(30, 140);
             gbConnection.Name = "gbConnection";
-            gbConnection.Size = new Size(630, 145);
+            gbConnection.Size = new Size(630, 190);
             gbConnection.TabIndex = 0;
-            gbConnection.TabStop = false;
-            gbConnection.Text = "Kết nối máy chủ";
+            //
+            // lblConnectionTitle
+            //
+            lblConnectionTitle.AutoSize = true;
+            lblConnectionTitle.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
+            lblConnectionTitle.Location = new Point(0, 0);
+            lblConnectionTitle.Name = "lblConnectionTitle";
+            lblConnectionTitle.Size = new Size(139, 23);
+            lblConnectionTitle.TabIndex = 0;
+            lblConnectionTitle.Text = "Kết nối máy chủ";
             //
             // lblStatus
             //
@@ -532,21 +540,10 @@
             lblStatus.TabIndex = 0;
             lblStatus.Text = "Chưa kết nối";
             //
-            // lblConnectedInfo
-            //
-            lblConnectedInfo.AutoSize = true;
-            lblConnectedInfo.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
-            lblConnectedInfo.ForeColor = Color.ForestGreen;
-            lblConnectedInfo.Location = new Point(220, 28);
-            lblConnectedInfo.Name = "lblConnectedInfo";
-            lblConnectedInfo.Size = new Size(0, 23);
-            lblConnectedInfo.TabIndex = 2;
-            lblConnectedInfo.Visible = false;
-            //
             // _lblServerIp
             //
             _lblServerIp.AutoSize = true;
-            _lblServerIp.Location = new Point(20, 58);
+            _lblServerIp.Location = new Point(20, 65);
             _lblServerIp.Name = "_lblServerIp";
             _lblServerIp.Size = new Size(81, 23);
             _lblServerIp.TabIndex = 3;
@@ -554,15 +551,15 @@
             //
             // _txtServerIp
             //
-            _txtServerIp.Location = new Point(95, 55);
+            _txtServerIp.Location = new Point(125, 62);
             _txtServerIp.Name = "_txtServerIp";
-            _txtServerIp.Size = new Size(180, 29);
+            _txtServerIp.Size = new Size(300, 29);
             _txtServerIp.TabIndex = 4;
             //
             // _lblServerPort
             //
             _lblServerPort.AutoSize = true;
-            _lblServerPort.Location = new Point(305, 58);
+            _lblServerPort.Location = new Point(20, 105);
             _lblServerPort.Name = "_lblServerPort";
             _lblServerPort.Size = new Size(45, 23);
             _lblServerPort.TabIndex = 5;
@@ -570,14 +567,14 @@
             //
             // _txtServerPort
             //
-            _txtServerPort.Location = new Point(350, 55);
+            _txtServerPort.Location = new Point(125, 102);
             _txtServerPort.Name = "_txtServerPort";
-            _txtServerPort.Size = new Size(80, 29);
+            _txtServerPort.Size = new Size(120, 29);
             _txtServerPort.TabIndex = 6;
             //
             // btnShowConnectDialog
             //
-            btnShowConnectDialog.Location = new Point(20, 92);
+            btnShowConnectDialog.Location = new Point(20, 142);
             btnShowConnectDialog.Name = "btnShowConnectDialog";
             btnShowConnectDialog.Size = new Size(140, 30);
             btnShowConnectDialog.TabIndex = 1;
@@ -587,16 +584,16 @@
             //
             // _btnDisconnect
             //
-            _btnDisconnect.Location = new Point(175, 92);
+            _btnDisconnect.Location = new Point(0, 142);
             _btnDisconnect.Name = "_btnDisconnect";
-            _btnDisconnect.Size = new Size(140, 30);
+            _btnDisconnect.Size = new Size(160, 32);
             _btnDisconnect.TabIndex = 8;
             _btnDisconnect.Text = "Ngắt kết nối";
             _btnDisconnect.UseVisualStyleBackColor = true;
             //
             // _btnSaveSettings
             //
-            _btnSaveSettings.Location = new Point(30, 400);
+            _btnSaveSettings.Location = new Point(30, 445);
             _btnSaveSettings.Name = "_btnSaveSettings";
             _btnSaveSettings.Size = new Size(160, 32);
             _btnSaveSettings.TabIndex = 9;
@@ -606,7 +603,7 @@
             // _btnLogout
             //
             _btnLogout.BackColor = Color.Red;
-            _btnLogout.Location = new Point(210, 400);
+            _btnLogout.Location = new Point(210, 445);
             _btnLogout.Name = "_btnLogout";
             _btnLogout.Size = new Size(160, 32);
             _btnLogout.TabIndex = 10;
@@ -617,7 +614,7 @@
             //
             lblConcurrentDownloads.AutoSize = true;
             lblConcurrentDownloads.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            lblConcurrentDownloads.Location = new Point(30, 315);
+            lblConcurrentDownloads.Location = new Point(30, 360);
             lblConcurrentDownloads.Name = "lblConcurrentDownloads";
             lblConcurrentDownloads.Size = new Size(177, 23);
             lblConcurrentDownloads.TabIndex = 4;
@@ -625,7 +622,7 @@
             // 
             // nudConcurrentDownloads
             // 
-            nudConcurrentDownloads.Location = new Point(250, 313);
+            nudConcurrentDownloads.Location = new Point(250, 358);
             nudConcurrentDownloads.Maximum = new decimal(new int[] { 5, 0, 0, 0 });
             nudConcurrentDownloads.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudConcurrentDownloads.Name = "nudConcurrentDownloads";
@@ -637,7 +634,7 @@
             // 
             lblSpeedLimit.AutoSize = true;
             lblSpeedLimit.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            lblSpeedLimit.Location = new Point(30, 355);
+            lblSpeedLimit.Location = new Point(30, 400);
             lblSpeedLimit.Name = "lblSpeedLimit";
             lblSpeedLimit.Size = new Size(147, 23);
             lblSpeedLimit.TabIndex = 6;
@@ -648,7 +645,7 @@
             cmbSpeedLimit.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbSpeedLimit.FormattingEnabled = true;
             cmbSpeedLimit.Items.AddRange(new object[] { "1", "5", "10" });
-            cmbSpeedLimit.Location = new Point(250, 353);
+            cmbSpeedLimit.Location = new Point(250, 398);
             cmbSpeedLimit.Name = "cmbSpeedLimit";
             cmbSpeedLimit.Size = new Size(80, 29);
             cmbSpeedLimit.TabIndex = 7;
@@ -657,7 +654,7 @@
             // 
             lblSpeedUnit.AutoSize = true;
             lblSpeedUnit.Font = new Font("Segoe UI", 10F);
-            lblSpeedUnit.Location = new Point(340, 355);
+            lblSpeedUnit.Location = new Point(340, 400);
             lblSpeedUnit.Name = "lblSpeedUnit";
             lblSpeedUnit.Size = new Size(49, 23);
             lblSpeedUnit.TabIndex = 8;
@@ -703,7 +700,6 @@
         #endregion
 
         private Panel pnlSidebar;
-        private Label lblSidebarTitle;
         private Button btnNavManageFile;
         private Button btnNavDownload;
         private Button btnNavSetting;
@@ -711,10 +707,10 @@
         private Panel pnlDownloadPage;
         private TableLayoutPanel tlpDownloadTables;
         private Panel pnlManageFilePage;
-        private GroupBox gbConnection;
+        private Panel gbConnection;
+        private Label lblConnectionTitle;
         private Label lblStatus;
         private Button btnShowConnectDialog;
-        private Label lblConnectedInfo;
         private GroupBox gbServerFiles;
         private Panel pnlServerToolbar;
         private GroupBox gbDownloads;

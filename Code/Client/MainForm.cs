@@ -27,8 +27,8 @@ namespace Client
         private readonly List<DownloadHistoryEntry> _downloadHistory = new List<DownloadHistoryEntry>();
         private string _username = "";
         private string _sessionToken = "";
-        private bool _isLoadingSettings;
         private bool _isSavingSettings;
+        private CancellationTokenSource _downloadCts = new();
 
         private DownloadManager _downloadManager =
             new DownloadManager(ClientConfig.Settings.Download.MaxConcurrentDownloads);
@@ -85,7 +85,6 @@ namespace Client
 
             SetConnectionState(true);
             _heartbeatTimer.Start();
-            RestorePendingDownloads();
             LoadDownloadHistory();
             RefreshManageFileList();
             _ = FetchServerFileListAsync();
@@ -100,6 +99,12 @@ namespace Client
             dgvServer.DataSource = _serverFiles;
             dgvDownload.DataSource = _downloadFiles;
 
+            dgvServer.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
+            dgvDownload.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
+
+            dgvServer.BackgroundColor = Color.White;
+            dgvDownload.BackgroundColor = Color.White;
+
             dgvServer.MultiSelect = true;
             dgvServer.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
 
@@ -110,7 +115,11 @@ namespace Client
             dgvDownload.AllowUserToResizeColumns = true;
 
             var colServerFileName = dgvServer.Columns["FileName"];
-            if (colServerFileName != null) colServerFileName.HeaderText = "Tên File";
+            if (colServerFileName != null)
+            {
+                colServerFileName.HeaderText = "Tên File";
+                colServerFileName.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            }
 
             var colServerDisplayName = dgvServer.Columns["DisplayName"];
             if (colServerDisplayName != null)
@@ -120,7 +129,12 @@ namespace Client
             if (colServerSize != null) colServerSize.HeaderText = "Kích Thước";
 
             var colServerHash = dgvServer.Columns["FileHash"];
-            if (colServerHash != null) colServerHash.HeaderText = "SHA-256";
+            if (colServerHash != null)
+            {
+                colServerHash.HeaderText = "SHA-256";
+                colServerHash.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+                colServerHash.Width = 110;
+            }
 
             var colDlFileName = dgvDownload.Columns["FileName"];
             if (colDlFileName != null) colDlFileName.Visible = false;
@@ -130,6 +144,8 @@ namespace Client
             {
                 colDlDisplayName.HeaderText = "Tên File";
                 colDlDisplayName.DisplayIndex = 1;
+                colDlDisplayName.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+                colDlDisplayName.Width = 210;
             }
 
             var colDlSize = dgvDownload.Columns["FormattedSize"];
@@ -338,9 +354,24 @@ namespace Client
         private void btnDisconnect_Click(object? sender, EventArgs e)
         {
             _heartbeatTimer.Stop();
+            CancelActiveDownloads();
             _networkService.Dispose();
             SetConnectionState(false);
             SetNotification("Đã ngắt kết nối.", isError: false);
+        }
+
+        private void CancelActiveDownloads()
+        {
+            try
+            {
+                _downloadCts.Cancel();
+                _downloadCts.Dispose();
+            }
+            catch
+            {
+            }
+
+            _downloadCts = new CancellationTokenSource();
         }
 
         private async void btnLogout_Click(object? sender, EventArgs e)
@@ -367,6 +398,7 @@ namespace Client
             finally
             {
                 LogoutRequested = true;
+                CancelActiveDownloads();
                 _networkService.Dispose();
                 Close();
             }
@@ -398,36 +430,16 @@ namespace Client
 
         private void LoadSettingsPage()
         {
-            _isLoadingSettings = true;
-            try
-            {
-                lblSettingsUsernameValue.Text = _username;
-                _txtServerIp.Text = _isConnected ? _serverIp : ClientConfig.Settings.Network.ServerIp;
-                _txtServerPort.Text = (_isConnected ? _serverPort : ClientConfig.Settings.Network.ServerPort).ToString();
-                _txtServerIp.Enabled = !_isConnected;
-                _txtServerPort.Enabled = !_isConnected;
-                nudConcurrentDownloads.Value = ClientConfig.Settings.Download.MaxConcurrentDownloads;
+            lblSettingsUsernameValue.Text = _username;
+            _txtServerIp.Text = _isConnected ? _serverIp : ClientConfig.Settings.Network.ServerIp;
+            _txtServerPort.Text = (_isConnected ? _serverPort : ClientConfig.Settings.Network.ServerPort).ToString();
+            _txtServerIp.Enabled = !_isConnected;
+            _txtServerPort.Enabled = !_isConnected;
+            nudConcurrentDownloads.Value = ClientConfig.Settings.Download.MaxConcurrentDownloads;
 
-                int currentSpeed = ClientConfig.Settings.Network.RequestedRateMBps;
-                int speedIndex = cmbSpeedLimit.Items.IndexOf(currentSpeed.ToString());
-                cmbSpeedLimit.SelectedIndex = speedIndex >= 0 ? speedIndex : 1;
-            }
-            finally
-            {
-                _isLoadingSettings = false;
-            }
-        }
-
-        private void nudConcurrentDownloads_ValueChanged(object? sender, EventArgs e)
-        {
-            if (_isLoadingSettings)
-                return;
-        }
-
-        private void cmbSpeedLimit_SelectedIndexChanged(object? sender, EventArgs e)
-        {
-            if (_isLoadingSettings)
-                return;
+            int currentSpeed = ClientConfig.Settings.Network.RequestedRateMBps;
+            int speedIndex = cmbSpeedLimit.Items.IndexOf(currentSpeed.ToString());
+            cmbSpeedLimit.SelectedIndex = speedIndex >= 0 ? speedIndex : 1;
         }
 
         private async Task<bool> SendSpeedLimitAsync(long speedMBs)
@@ -961,7 +973,6 @@ namespace Client
                 SetConnectionState(true);
                 _heartbeatTimer.Start();
 
-                RestorePendingDownloads();
                 LoadDownloadHistory();
                 RefreshManageFileList();
                 await FetchServerFileListAsync();
@@ -1055,7 +1066,10 @@ namespace Client
             _txtServerPort.Enabled = !isConnected;
 
             if (_btnDisconnect != null)
+            {
                 _btnDisconnect.Enabled = isConnected;
+                _btnDisconnect.Visible = isConnected;
+            }
 
             string baseTitle = "UDM11 - Multi-File Downloader";
 
@@ -1064,9 +1078,7 @@ namespace Client
                 lblStatus.Text = string.IsNullOrEmpty(customStatus) ? "● Đã kết nối" : customStatus;
                 lblStatus.ForeColor = Color.ForestGreen;
                 btnShowConnectDialog.Visible = false;
-                lblConnectedInfo.Visible = true;
-                lblConnectedInfo.Text = $"Server: {_serverIp}:{_serverPort}";
-                this.Text = $"{baseTitle} - {GetClientEndpointInfo()}";
+                this.Text = baseTitle;
             }
             else
             {
@@ -1074,9 +1086,6 @@ namespace Client
                 lblStatus.ForeColor = Color.Red;
                 btnShowConnectDialog.Visible = true;
                 btnShowConnectDialog.Enabled = true;
-                lblConnectedInfo.Visible = false;
-                lblConnectedInfo.Text = "";
-
                 this.Text = baseTitle;
 
                 _heartbeatTimer.Stop();
@@ -1359,39 +1368,6 @@ namespace Client
         //  DOWNLOAD QUEUE
         // ─────────────────────────────────────────────────────────────
 
-        private void RestorePendingDownloads()
-        {
-            var savedStates = DownloadStateStore.Load();
-            if (savedStates.Count == 0) return;
-
-            foreach (var state in savedStates)
-            {
-                int downloaded = state.FileSizeBytes > 0
-                    ? (int)(state.DownloadedBytes * 100 / state.FileSizeBytes)
-                    : 0;
-
-                var item = new FileItem
-                {
-                    STT = _downloadFiles.Count + 1,
-                    FileName = state.FileName,
-                    DisplayName = state.DisplayName,
-                    FileSizeBytes = state.FileSizeBytes,
-                    DownloadedBytes = state.DownloadedBytes,
-                    SavedPath = state.SavedPath,
-                    Progress = downloaded,
-                    Status = DownloadStatus.Downloading,
-                    SpeedInfo = "Đang tiếp tục..."
-                };
-
-                _downloadFiles.Add(item);
-                _ = StartDownloadAsync(item);
-            }
-
-            DownloadStateStore.Clear();
-            UpdateDownloadStats();
-            SetNotification($"Khôi phục {_downloadFiles.Count} file đang tải...", isError: false);
-        }
-
         private void LoadDownloadHistory()
         {
             var history = DownloadHistoryStore.LoadByUsername(_username);
@@ -1435,7 +1411,8 @@ namespace Client
                 _username,
                 _sessionToken,
                 progress,
-                conflictMode);
+                conflictMode,
+                _downloadCts.Token);
 
             switch (result.Status)
             {
@@ -1609,30 +1586,6 @@ namespace Client
         //  HELPERS
         // ─────────────────────────────────────────────────────────────
 
-        private string GetClientEndpointInfo()
-        {
-            try
-            {
-                if (_networkService.ClientSocket?.LocalEndPoint is System.Net.IPEndPoint endPoint)
-                {
-                    return $"{endPoint.Address}:{endPoint.Port}";
-                }
-
-                var host = System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName());
-                foreach (var ip in host.AddressList)
-                {
-                    if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(ip))
-                    {
-                        return ip.ToString();
-                    }
-                }
-            }
-            catch
-            {
-            }
-            return "127.0.0.1";
-        }
-
         private void EnableDoubleBuffering(Control control)
         {
             typeof(Control)
@@ -1643,41 +1596,12 @@ namespace Client
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             _heartbeatTimer.Stop();
+            CancelActiveDownloads();
 
-            var statesToSave = _downloadFiles
-                .Where(f => f.Status == DownloadStatus.Downloading
-                         || f.Status == DownloadStatus.Pending)
-                .Select(f =>
-                {
-                    long downloaded = f.DownloadedBytes;
-                    try
-                    {
-                        if (!string.IsNullOrEmpty(f.SavedPath) && File.Exists(f.SavedPath))
-                            downloaded = new FileInfo(f.SavedPath).Length;
-                    }
-                    catch { }
-
-                    return new DownloadState
-                    {
-                        FileName = f.FileName,
-                        DisplayName = f.DisplayName,
-                        FileSizeBytes = f.FileSizeBytes,
-                        DownloadedBytes = downloaded,
-                        SavedPath = f.SavedPath
-                    };
-                })
-                .ToList();
-
-            DownloadStateStore.Save(statesToSave);
             DownloadHistoryStore.Save(_downloadHistory);
 
             _networkService?.Dispose();
             base.OnFormClosing(e);
-        }
-
-        private void lblSidebarTitle_Click(object sender, EventArgs e)
-        {
-
         }
 
         private void pnlDownloadPage_Paint(object sender, PaintEventArgs e)
