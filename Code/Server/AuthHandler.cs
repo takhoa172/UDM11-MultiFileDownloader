@@ -67,6 +67,19 @@ public static class AuthHandler
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(request.PasswordHash))
+        {
+            await SendAuthResponseAsync(stream, false, "400_INVALID_CREDENTIALS", null);
+            return;
+        }
+
+        if (!UserStore.ValidateLogin(request.Username!, request.PasswordHash!))
+        {
+            ServerLogger.LogInfo($"[AUTH] Doi mat khau '{request.Username}' - FAIL (sai mat khau cu)");
+            await SendAuthResponseAsync(stream, false, "Sai mat khau hien tai.", null);
+            return;
+        }
+
         bool ok = UserStore.ChangePassword(request.Username!, request.NewPasswordHash!);
         ServerLogger.LogInfo($"[AUTH] Doi mat khau '{request.Username}' - {(ok ? "OK" : "FAIL")}");
 

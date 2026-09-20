@@ -67,6 +67,8 @@ static async Task HandleClientAsync(TcpClient client)
 
     bool isMainConnection = false;
 
+    UploadHandler? uploadHandler = null;
+
     try
     {
         using (client)
@@ -182,7 +184,11 @@ static async Task HandleClientAsync(TcpClient client)
                         $"[{clientIp}] Nhan lenh {request.Command}");
                 }
 
-                await ProcessRequestAsync(stream, request, clientIp);
+                uploadHandler = await ProcessRequestAsync(
+                    stream,
+                    request,
+                    clientIp,
+                    uploadHandler);
             }
         }
     }
@@ -208,6 +214,8 @@ static async Task HandleClientAsync(TcpClient client)
     }
     finally
     {
+        uploadHandler?.Dispose();
+
         if (connectionCounted && isMainConnection)
         {
             ServerLogger.ClientDisconnected(clientIp, silent: false);
@@ -218,10 +226,11 @@ static async Task HandleClientAsync(TcpClient client)
 //  PROCESS REQUEST
 // ─────────────────────────────────────────────────────────────
 
-static async Task ProcessRequestAsync(
+static async Task<UploadHandler?> ProcessRequestAsync(
     NetworkStream stream,
     ProtocolPacket request,
-    string clientIp)
+    string clientIp,
+    UploadHandler? uploadHandler)
 {
     try
     {
@@ -284,6 +293,7 @@ static async Task ProcessRequestAsync(
                         stream,
                         filePath,
                         safeFileName,
+                        request.RequestedRateBytesPerSecond,
                         downloadCts.Token);
 
                     break;
@@ -299,12 +309,61 @@ static async Task ProcessRequestAsync(
                 break;
 
             case PacketCommand.UPLOAD_REQ:
+                uploadHandler ??= new UploadHandler(stream, ServerConfig.StoragePath);
+                await uploadHandler.HandleUploadRequestAsync(request);
+                break;
+
             case PacketCommand.UPLOAD_CHUNK:
+                if (uploadHandler is null)
+                {
+                    await SendPacketAsync(stream, new ProtocolPacket
+                    {
+                        Command = PacketCommand.ERROR_RESP,
+                        ErrorCode = "400_UPLOAD_NOT_STARTED",
+                        Message = "Chua co phien upload."
+                    });
+                }
+                else
+                {
+                    await uploadHandler.HandleUploadChunkAsync(request);
+                }
+                break;
+
             case PacketCommand.UPLOAD_DONE:
+                if (uploadHandler is null)
+                {
+                    await SendPacketAsync(stream, new ProtocolPacket
+                    {
+                        Command = PacketCommand.ERROR_RESP,
+                        ErrorCode = "400_UPLOAD_NOT_STARTED",
+                        Message = "Chua co phien upload."
+                    });
+                }
+                else
+                {
+                    await uploadHandler.HandleUploadDoneAsync(request);
+                }
+                break;
+
             case PacketCommand.RENAME_FILE:
+                await SendPacketAsync(
+                    stream,
+                    FileManager.RenameFile(
+                        ServerConfig.StoragePath,
+                        request.FileName,
+                        request.NewFileName));
+                break;
+
             case PacketCommand.DELETE_FILE:
+                await SendPacketAsync(
+                    stream,
+                    FileManager.DeleteFile(
+                        ServerConfig.StoragePath,
+                        request.FileName));
+                break;
+
             case PacketCommand.SET_RATE_LIMIT:
-                await SendFeatureUnavailableAsync(stream, request.Command);
+                await SettingHandler.HandleAsync(stream, request);
                 break;
 
             default:
@@ -346,20 +405,8 @@ static async Task ProcessRequestAsync(
         {
         }
     }
-}
 
-static async Task SendFeatureUnavailableAsync(
-    NetworkStream stream,
-    PacketCommand command)
-{
-    await SendPacketAsync(
-        stream,
-        new ProtocolPacket
-        {
-            Command = PacketCommand.ERROR_RESP,
-            ErrorCode = "501_NOT_IMPLEMENTED",
-            Message = $"Module xu ly lenh {command} chua duoc ket noi."
-        });
+    return uploadHandler;
 }
 
 // ─────────────────────────────────────────────────────────────

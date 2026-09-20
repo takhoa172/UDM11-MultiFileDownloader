@@ -78,7 +78,8 @@ namespace Client.Logic
                 await writer.WriteLineAsync(PacketHelper.EncodeToString(new ProtocolPacket
                 {
                     Command = PacketCommand.DOWNLOAD_REQ,
-                    FileName = fileName
+                    FileName = fileName,
+                    RequestedRateBytesPerSecond = _settings.Network.RequestedRateMBps * 1024L * 1024
                 }));
 
                 long currentDownloadedBytes = downloadedBytes;

@@ -1,19 +1,18 @@
 using System;
 using System.IO;
-using System.Net.Sockets;
 using System.Threading.Tasks;
-using Shared; 
+using Shared;
 
 namespace Client.Logic
 {
     public class UploadManager
     {
-        private const long MaxFileSize = 3L * 1024 * 1024 * 1024; // Giới hạn tối đa 3GB
+        private const long MaxFileSize = 3L * 1024 * 1024 * 1024;
+        private const int BufferSize = 8192;
 
-        public async Task UploadFileAsync(
+        public async Task<bool> UploadFileAsync(
             string filePath,
-            string serverIp,
-            int serverPort,
+            NetworkService networkService,
             IProgress<int>? progress = null)
         {
             FileInfo fileInfo = new FileInfo(filePath);
@@ -23,57 +22,88 @@ namespace Client.Logic
                 throw new FileNotFoundException("File chọn tải lên không tồn tại.");
             }
 
-            // Chặn file > 3GB theo yêu cầu
             if (fileInfo.Length > MaxFileSize)
             {
                 throw new InvalidOperationException("Kích thước file vượt quá giới hạn 3GB.");
             }
 
-            using var client = new TcpClient();
-            await client.ConnectAsync(serverIp, serverPort);
+            int totalChunks = fileInfo.Length == 0
+                ? 0
+                : (int)Math.Ceiling((double)fileInfo.Length / BufferSize);
 
-            using var stream = client.GetStream();
-            using var writer = new StreamWriter(stream) { AutoFlush = true };
-
-            // Gửi gói yêu cầu Upload (UPLOAD_REQ)
-            await writer.WriteLineAsync(PacketHelper.EncodeToString(new ProtocolPacket
+            await networkService.SendPacketAsync(new ProtocolPacket
             {
                 Command = PacketCommand.UPLOAD_REQ,
                 FileName = fileInfo.Name,
-                TotalSize = fileInfo.Length
-            }));
+                TotalSize = fileInfo.Length,
+                TotalChunks = totalChunks
+            });
 
-            // Đọc file vật lý và gửi dữ liệu cắt nhỏ (UPLOAD_CHUNK)
-            using FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 8192, useAsync: true);
-            byte[] buffer = new byte[8192];
-            int bytesRead;
-            long totalBytesRead = 0;
-
-            while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            ProtocolPacket ready = await networkService.ReadPacketAsync();
+            if (ready.Command == PacketCommand.ERROR_RESP || !ready.Success)
             {
-                totalBytesRead += bytesRead;
-                bool isLastChunk = totalBytesRead == fileInfo.Length;
-
-                string dataBase64 = Convert.ToBase64String(buffer, 0, bytesRead);
-
-                await writer.WriteLineAsync(PacketHelper.EncodeToString(new ProtocolPacket
-                {
-                    Command = PacketCommand.UPLOAD_CHUNK,
-                    FileName = fileInfo.Name,
-                    DataBase64 = dataBase64,
-                    IsLastChunk = isLastChunk
-                }));
-
-                int percentage = (int)((double)totalBytesRead / fileInfo.Length * 100);
-                progress?.Report(percentage);
+                return false;
             }
 
-            // Gửi tín hiệu hoàn tất (UPLOAD_DONE)
-            await writer.WriteLineAsync(PacketHelper.EncodeToString(new ProtocolPacket
+            string actualName = string.IsNullOrEmpty(ready.FileName)
+                ? fileInfo.Name
+                : ready.FileName;
+
+            using (FileStream fileStream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                BufferSize,
+                useAsync: true))
+            {
+                byte[] buffer = new byte[BufferSize];
+                int bytesRead;
+                long totalBytesRead = 0;
+                int chunkIndex = 0;
+
+                while ((bytesRead = await fileStream.ReadAsync(buffer.AsMemory(0, buffer.Length))) > 0)
+                {
+                    totalBytesRead += bytesRead;
+                    bool isLastChunk = totalBytesRead == fileInfo.Length;
+
+                    await networkService.SendPacketAsync(new ProtocolPacket
+                    {
+                        Command = PacketCommand.UPLOAD_CHUNK,
+                        FileName = actualName,
+                        DataBase64 = PacketHelper.EncodeBinaryData(buffer[..bytesRead]),
+                        ChunkIndex = chunkIndex++,
+                        TotalChunks = totalChunks,
+                        IsLastChunk = isLastChunk
+                    });
+
+                    ProtocolPacket chunkAck = await networkService.ReadPacketAsync();
+                    if (chunkAck.Command == PacketCommand.ERROR_RESP || !chunkAck.Success)
+                    {
+                        return false;
+                    }
+
+                    if (fileInfo.Length > 0)
+                    {
+                        progress?.Report((int)((double)totalBytesRead / fileInfo.Length * 100));
+                    }
+                }
+            }
+
+            await networkService.SendPacketAsync(new ProtocolPacket
             {
                 Command = PacketCommand.UPLOAD_DONE,
-                FileName = fileInfo.Name
-            }));
+                FileName = actualName
+            });
+
+            ProtocolPacket result = await networkService.ReadPacketAsync();
+            if (result.Command == PacketCommand.ERROR_RESP || !result.Success)
+            {
+                return false;
+            }
+
+            progress?.Report(100);
+            return true;
         }
     }
 }

@@ -25,7 +25,7 @@ namespace Client
         private readonly List<DownloadHistoryEntry> _downloadHistory = new List<DownloadHistoryEntry>();
         private string _username = "";
 
-        private readonly DownloadManager _downloadManager =
+        private DownloadManager _downloadManager =
             new DownloadManager(ClientConfig.Settings.Download.MaxConcurrentDownloads);
         private string _serverIp;
         private int _serverPort;
@@ -255,11 +255,65 @@ namespace Client
             });
         }
 
+        private Button? _btnDisconnect;
+        private Button? _btnSaveSettings;
+
         private void SetupSettingsPage()
         {
             btnChangePassword.Click += btnChangePassword_Click;
-            nudConcurrentDownloads.ValueChanged += nudConcurrentDownloads_ValueChanged;
-            cmbSpeedLimit.SelectedIndexChanged += cmbSpeedLimit_SelectedIndexChanged;
+
+            gbConnection.Controls.Remove(btnShowConnectDialog);
+            pnlSettingsPage.Controls.Add(btnShowConnectDialog);
+            btnShowConnectDialog.Location = new Point(30, 220);
+
+            _btnDisconnect = new Button
+            {
+                Text = "Ngắt kết nối",
+                Left = 200,
+                Top = 220,
+                Width = 140,
+                Height = 28,
+                Enabled = false
+            };
+            _btnDisconnect.Click += btnDisconnect_Click;
+            pnlSettingsPage.Controls.Add(_btnDisconnect);
+
+            _btnSaveSettings = new Button
+            {
+                Text = "Lưu cài đặt",
+                Left = 30,
+                Top = 260,
+                Width = 160,
+                Height = 32
+            };
+            _btnSaveSettings.Click += btnSaveSettings_Click;
+            pnlSettingsPage.Controls.Add(_btnSaveSettings);
+        }
+
+        private void btnSaveSettings_Click(object? sender, EventArgs e)
+        {
+            ClientConfig.Settings.Download.MaxConcurrentDownloads = (int)nudConcurrentDownloads.Value;
+            ClientConfig.Settings.Network.RequestedRateMBps =
+                int.Parse(cmbSpeedLimit.SelectedItem?.ToString() ?? "5");
+            ClientConfig.Settings.Save();
+
+            _downloadManager = new DownloadManager(ClientConfig.Settings.Download.MaxConcurrentDownloads);
+
+            if (_isConnected)
+            {
+                _ = SendSpeedLimitAsync(ClientConfig.Settings.Network.RequestedRateMBps);
+            }
+
+            MessageBox.Show("Đã lưu cài đặt.", "Thông báo",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void btnDisconnect_Click(object? sender, EventArgs e)
+        {
+            _heartbeatTimer.Stop();
+            _networkService.Dispose();
+            SetConnectionState(false);
+            SetNotification("Đã ngắt kết nối.", isError: false);
         }
 
         private Panel? _activePage;
@@ -344,7 +398,7 @@ namespace Client
                 return;
             }
 
-            using var form = new ForgotPasswordForm(_networkService);
+            using var form = new ChangePasswordForm(_networkService, _username);
             form.ShowDialog(this);
         }
 
@@ -468,7 +522,7 @@ namespace Client
                 });
 
                 ProtocolPacket result = await _networkService.ReadPacketAsync();
-                if (result.Command == PacketCommand.PONG)
+                if (result.Success)
                 {
                     var item = _uploadFiles.FirstOrDefault(f => f.SavedPath == oldPath);
                     if (item != null)
@@ -554,7 +608,7 @@ namespace Client
                     });
 
                     ProtocolPacket result = await _networkService.ReadPacketAsync();
-                    if (result.Command == PacketCommand.PONG)
+                    if (result.Success)
                     {
                         var item = _uploadFiles.FirstOrDefault(f => f.SavedPath == path);
                         if (item != null)
@@ -611,6 +665,7 @@ namespace Client
 
                 int uploaded = 0;
                 int failed = 0;
+                var uploadManager = new UploadManager();
 
                 foreach (string filePath in dialog.FileNames)
                 {
@@ -621,49 +676,16 @@ namespace Client
                     {
                         SetNotification($"Đang tải lên: {fileName}...", isError: false);
 
-                        await _networkService.SendPacketAsync(new ProtocolPacket
-                        {
-                            Command = PacketCommand.UPLOAD_REQ,
-                            FileName = fileName
-                        });
+                        bool ok = await uploadManager.UploadFileAsync(filePath, _networkService);
 
-                        ProtocolPacket ready = await _networkService.ReadPacketAsync();
-                        if (ready.Command != PacketCommand.PONG)
-                        {
-                            SetNotification($"Lỗi tải lên {fileName}: {ready.Message}", isError: true);
-                            failed++;
-                            continue;
-                        }
-
-                        string actualName = !string.IsNullOrEmpty(ready.FileName)
-                            ? ready.FileName
-                            : fileName;
-
-                        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        byte[] buffer = new byte[8192];
-                        int bytesRead;
-
-                        while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                        {
-                            bool isLast = fs.Position >= fs.Length;
-                            await _networkService.SendPacketAsync(new ProtocolPacket
-                            {
-                                Command = PacketCommand.FILE_CHUNK,
-                                FileName = actualName,
-                                DataBase64 = PacketHelper.EncodeBinaryData(buffer[..bytesRead]),
-                                IsLastChunk = isLast
-                            });
-                        }
-
-                        ProtocolPacket result = await _networkService.ReadPacketAsync();
-                        if (result.Command == PacketCommand.PONG)
+                        if (ok)
                         {
                             uploaded++;
                             _uploadFiles.Add(new FileItem
                             {
                                 STT = _uploadFiles.Count + 1,
-                                FileName = actualName,
-                                DisplayName = actualName,
+                                FileName = fileName,
+                                DisplayName = fileName,
                                 FileSizeBytes = size,
                                 SavedPath = filePath,
                                 Progress = 100,
@@ -672,8 +694,8 @@ namespace Client
 
                             var historyEntry = new DownloadHistoryEntry
                             {
-                                FileName = actualName,
-                                DisplayName = actualName,
+                                FileName = fileName,
+                                DisplayName = fileName,
                                 FileSizeBytes = size,
                                 SavedPath = filePath,
                                 DownloadedAt = DateTime.Now,
@@ -688,7 +710,7 @@ namespace Client
                         else
                         {
                             failed++;
-                            SetNotification($"Lỗi tải lên {fileName}: {result.Message}", isError: true);
+                            SetNotification($"Lỗi tải lên {fileName}.", isError: true);
                         }
                     }
                     catch (Exception ex)
@@ -907,6 +929,10 @@ namespace Client
             }
 
             _isConnected = isConnected;
+
+            if (_btnDisconnect != null)
+                _btnDisconnect.Enabled = isConnected;
+
             string baseTitle = "UDM11 - Multi-File Downloader";
 
             if (isConnected)

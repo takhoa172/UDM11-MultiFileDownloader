@@ -77,9 +77,9 @@
             // 
             pnlSidebar.BackColor = Color.FromArgb(30, 30, 60);
             pnlSidebar.Controls.Add(lblSidebarTitle);
-            pnlSidebar.Controls.Add(btnNavManageFile);
-            pnlSidebar.Controls.Add(btnNavDownload);
             pnlSidebar.Controls.Add(btnNavSetting);
+            pnlSidebar.Controls.Add(btnNavDownload);
+            pnlSidebar.Controls.Add(btnNavManageFile);
             pnlSidebar.Dock = DockStyle.Left;
             pnlSidebar.Location = new Point(0, 0);
             pnlSidebar.Name = "pnlSidebar";
@@ -106,7 +106,7 @@
             btnNavManageFile.FlatStyle = FlatStyle.Flat;
             btnNavManageFile.Font = new Font("Segoe UI", 10F);
             btnNavManageFile.ForeColor = Color.White;
-            btnNavManageFile.Location = new Point(0, 90);
+            btnNavManageFile.Location = new Point(0, 0);
             btnNavManageFile.Name = "btnNavManageFile";
             btnNavManageFile.Padding = new Padding(15, 0, 0, 0);
             btnNavManageFile.Size = new Size(180, 45);
@@ -142,7 +142,7 @@
             btnNavSetting.FlatStyle = FlatStyle.Flat;
             btnNavSetting.Font = new Font("Segoe UI", 10F);
             btnNavSetting.ForeColor = Color.White;
-            btnNavSetting.Location = new Point(0, 0);
+            btnNavSetting.Location = new Point(0, 90);
             btnNavSetting.Name = "btnNavSetting";
             btnNavSetting.Padding = new Padding(15, 0, 0, 0);
             btnNavSetting.Size = new Size(180, 45);
