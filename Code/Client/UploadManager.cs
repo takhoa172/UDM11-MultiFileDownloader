@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using Shared;
 
 namespace Client.Logic
@@ -19,12 +20,15 @@ namespace Client.Logic
 
             if (!fileInfo.Exists)
             {
-                throw new FileNotFoundException("File chọn tải lên không tồn tại.");
+                MessageBox.Show("File chọn tải lên không tồn tại.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false; // Hiện thông báo và dừng tải
             }
 
+            //Hiển thị thông báo khi file > 3GB
             if (fileInfo.Length > MaxFileSize)
             {
-                throw new InvalidOperationException("Kích thước file vượt quá giới hạn 3GB.");
+                MessageBox.Show("Kích thước file vượt 3GB!", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
             }
 
             int totalChunks = fileInfo.Length == 0
@@ -38,6 +42,7 @@ namespace Client.Logic
                 TotalSize = fileInfo.Length,
                 TotalChunks = totalChunks
             });
+
             if (ready.Command == PacketCommand.ERROR_RESP || !ready.Success)
             {
                 return false;
@@ -74,6 +79,7 @@ namespace Client.Logic
                         TotalChunks = totalChunks,
                         IsLastChunk = isLastChunk
                     });
+
                     if (chunkAck.Command == PacketCommand.ERROR_RESP || !chunkAck.Success)
                     {
                         return false;
@@ -91,6 +97,7 @@ namespace Client.Logic
                 Command = PacketCommand.UPLOAD_DONE,
                 FileName = actualName
             });
+
             if (result.Command == PacketCommand.ERROR_RESP || !result.Success)
             {
                 return false;
