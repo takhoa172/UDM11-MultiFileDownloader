@@ -81,7 +81,7 @@ namespace Client
             // lblError
             // 
             lblError.ForeColor = Color.Red;
-            lblError.Location = new Point(30, 100);
+            lblError.Location = new Point(31, 140);
             lblError.Name = "lblError";
             lblError.Size = new Size(320, 20);
             lblError.TabIndex = 7;
@@ -90,7 +90,7 @@ namespace Client
             // 
             lblVerifiedUser.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
             lblVerifiedUser.ForeColor = Color.ForestGreen;
-            lblVerifiedUser.Location = new Point(35, 54);
+            lblVerifiedUser.Location = new Point(35, 50);
             lblVerifiedUser.Name = "lblVerifiedUser";
             lblVerifiedUser.Size = new Size(320, 20);
             lblVerifiedUser.TabIndex = 8;
@@ -99,7 +99,7 @@ namespace Client
             // lblNewPassword
             // 
             lblNewPassword.AutoSize = true;
-            lblNewPassword.Location = new Point(35, 57);
+            lblNewPassword.Location = new Point(31, 82);
             lblNewPassword.Name = "lblNewPassword";
             lblNewPassword.Size = new Size(91, 17);
             lblNewPassword.TabIndex = 9;
@@ -108,7 +108,7 @@ namespace Client
             // 
             // txtNewPassword
             // 
-            txtNewPassword.Location = new Point(31, 77);
+            txtNewPassword.Location = new Point(31, 102);
             txtNewPassword.Name = "txtNewPassword";
             txtNewPassword.Size = new Size(320, 25);
             txtNewPassword.TabIndex = 10;
@@ -118,7 +118,7 @@ namespace Client
             // lblConfirmPassword
             // 
             lblConfirmPassword.AutoSize = true;
-            lblConfirmPassword.Location = new Point(31, 116);
+            lblConfirmPassword.Location = new Point(31, 137);
             lblConfirmPassword.Name = "lblConfirmPassword";
             lblConfirmPassword.Size = new Size(121, 17);
             lblConfirmPassword.TabIndex = 11;
@@ -127,7 +127,7 @@ namespace Client
             // 
             // txtConfirmPassword
             // 
-            txtConfirmPassword.Location = new Point(31, 136);
+            txtConfirmPassword.Location = new Point(31, 157);
             txtConfirmPassword.Name = "txtConfirmPassword";
             txtConfirmPassword.Size = new Size(320, 25);
             txtConfirmPassword.TabIndex = 12;
@@ -136,7 +136,7 @@ namespace Client
             // 
             // btnReset
             // 
-            btnReset.Location = new Point(30, 215);
+            btnReset.Location = new Point(31, 222);
             btnReset.Name = "btnReset";
             btnReset.Size = new Size(155, 35);
             btnReset.TabIndex = 13;
@@ -151,7 +151,7 @@ namespace Client
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnCancel;
-            ClientSize = new Size(380, 270);
+            ClientSize = new Size(380, 225);
             Controls.Add(lblTitle);
             Controls.Add(lblUsername);
             Controls.Add(txtUsername);
@@ -162,6 +162,8 @@ namespace Client
             Controls.Add(txtNewPassword);
             Controls.Add(lblConfirmPassword);
             Controls.Add(txtConfirmPassword);
+            Controls.Add(btnReset);
+            Controls.Add(lblError);
             Font = new Font("Segoe UI", 9.75F);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;

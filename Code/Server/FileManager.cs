@@ -15,7 +15,7 @@ public static class FileManager
         {
             return CreateError(
                 oldNameError,
-                "Tên file cũ không hợp lệ.");
+                "Tên tệp cũ không hợp lệ.");
         }
 
         string? newNameError = PacketValidator.ValidateFileName(newFileName);
@@ -24,14 +24,14 @@ public static class FileManager
         {
             return CreateError(
                 newNameError,
-                "Tên file mới không hợp lệ.");
+                "Tên tệp mới không hợp lệ.");
         }
 
         if (!PacketValidator.HasSameFileExtension(oldFileName!, newFileName!))
         {
             return CreateError(
                 "400_EXTENSION_CHANGE",
-                "Khong duoc thay doi dinh dang file.");
+                "Không được thay đổi định dạng tệp.");
         }
 
         string oldPath = Path.Combine(
@@ -48,17 +48,32 @@ public static class FileManager
             {
                 return CreateError(
                     "404_FILE_NOT_FOUND",
-                    "Không tìm thấy file cần đổi tên.");
+                    "Không tìm thấy tệp cần đổi tên.");
             }
 
-            if (File.Exists(newPath))
+            bool caseOnlyRename =
+                string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(oldPath, newPath, StringComparison.Ordinal);
+
+            if (!caseOnlyRename && File.Exists(newPath))
             {
                 return CreateError(
                     "409_FILE_EXISTS",
-                    "Tên file mới đã tồn tại.");
+                    "Tên tệp mới đã tồn tại.");
             }
 
-            File.Move(oldPath, newPath);
+            if (caseOnlyRename)
+            {
+                string tempPath =
+                    oldPath + "." + Guid.NewGuid().ToString("N") + ".renaming";
+
+                File.Move(oldPath, tempPath);
+                File.Move(tempPath, newPath);
+            }
+            else
+            {
+                File.Move(oldPath, newPath);
+            }
 
             return new ProtocolPacket
             {
@@ -66,20 +81,20 @@ public static class FileManager
                 Success = true,
                 FileName = oldFileName,
                 NewFileName = newFileName,
-                Message = "Đổi tên file thành công."
+                Message = "Đổi tên tệp thành công."
             };
         }
         catch (UnauthorizedAccessException)
         {
             return CreateError(
                 "403_ACCESS_DENIED",
-                "Không có quyền đổi tên file.");
+                "Không có quyền đổi tên tệp.");
         }
         catch (IOException)
         {
             return CreateError(
                 "409_FILE_OPERATION_FAILED",
-                "Không thể đổi tên file.");
+                "Không thể đổi tên tệp.");
         }
         catch (Exception ex)
         {
@@ -105,7 +120,7 @@ public static class FileManager
         {
             return CreateError(
                 fileNameError,
-                "Tên file không hợp lệ.");
+                "Tên tệp không hợp lệ.");
         }
 
         string filePath = Path.Combine(
@@ -118,7 +133,7 @@ public static class FileManager
             {
                 return CreateError(
                     "404_FILE_NOT_FOUND",
-                    "Không tìm thấy file cần xóa.");
+                    "Không tìm thấy tệp cần xóa.");
             }
 
             File.Delete(filePath);
@@ -128,20 +143,20 @@ public static class FileManager
                 Command = PacketCommand.DELETE_FILE,
                 Success = true,
                 FileName = fileName,
-                Message = "Xóa file thành công."
+                Message = "Xóa tệp thành công."
             };
         }
         catch (UnauthorizedAccessException)
         {
             return CreateError(
                 "403_ACCESS_DENIED",
-                "Không có quyền xóa file.");
+                "Không có quyền xóa tệp.");
         }
         catch (IOException)
         {
             return CreateError(
                 "409_FILE_OPERATION_FAILED",
-                "Không thể xóa file.");
+                "Không thể xóa tệp.");
         }
         catch (Exception ex)
         {

@@ -67,8 +67,8 @@ namespace Client.Logic
 
                 if (filePath == null)
                 {
-                    progress?.Report(new DownloadProgressModel { FileName = fileName, Percentage = 100, SpeedInfo = "Skipped" });
-                    return new DownloadResult { Status = DownloadStatusResult.Skipped, Message = "File đã tồn tại (bỏ qua)." };
+                    progress?.Report(new DownloadProgressModel { FileName = fileName, Percentage = 100, SpeedInfo = "Bỏ qua" });
+                    return new DownloadResult { Status = DownloadStatusResult.Skipped, Message = "Tệp đã tồn tại (bỏ qua)." };
                 }
 
                 using var client = new TcpClient();
@@ -96,7 +96,7 @@ namespace Client.Logic
                     while (true)
                     {
                         string? line = await reader.ReadLineAsync(cancellationToken);
-                        if (line == null) throw new IOException("Server đóng kết nối.");
+                        if (line == null) throw new IOException("Máy chủ đóng kết nối.");
 
                         ProtocolPacket packet = PacketHelper.Decode(line);
 
@@ -149,7 +149,7 @@ namespace Client.Logic
                 }
 
                 bool hashOk = await FileIntegrityVerifier.VerifyFileAndDeleteIfCorruptAsync(filePath, expectedHash);
-                if (!hashOk) return new DownloadResult { Status = DownloadStatusResult.Error, Message = "File hỏng: hash không khớp." };
+                if (!hashOk) return new DownloadResult { Status = DownloadStatusResult.Error, Message = "Tệp hỏng: mã băm không khớp." };
 
                 return new DownloadResult { Status = DownloadStatusResult.Completed, SavedPath = filePath };
             }

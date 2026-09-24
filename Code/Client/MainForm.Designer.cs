@@ -33,9 +33,12 @@
             btnRefreshServerList = new Button();
             gbDownloads = new GroupBox();
             dgvDownload = new DataGridView();
-            lblLastSaved = new Label();
             lblDownloadStats = new Label();
-            txtNotification = new TextBox();
+            txtNotification = new RichTextBox();
+            pnlNotificationBar = new Panel();
+            pnlNotificationHeader = new Panel();
+            lblNotificationTitle = new Label();
+            pnlNotificationBody = new Panel();
             pnlManageFilePage = new Panel();
             dgvManageFile = new DataGridView();
             pnlManageFileToolbar = new Panel();
@@ -151,10 +154,11 @@
             // 
             // pnlContent
             // 
-            pnlContent.AutoSize = true;
+            pnlContent.AutoSize = false;
             pnlContent.Controls.Add(pnlDownloadPage);
             pnlContent.Controls.Add(pnlManageFilePage);
             pnlContent.Controls.Add(pnlSettingsPage);
+            pnlContent.Controls.Add(pnlNotificationBar);
             pnlContent.Dock = DockStyle.Fill;
             pnlContent.Location = new Point(240, 0);
             pnlContent.Name = "pnlContent";
@@ -167,9 +171,6 @@
             pnlDownloadPage.Controls.Add(txtSaveFolder);
             pnlDownloadPage.Controls.Add(btnChooseFolder);
             pnlDownloadPage.Controls.Add(tlpDownloadTables);
-            pnlDownloadPage.Controls.Add(lblLastSaved);
-            pnlDownloadPage.Controls.Add(lblDownloadStats);
-            pnlDownloadPage.Controls.Add(txtNotification);
             pnlDownloadPage.Dock = DockStyle.Fill;
             pnlDownloadPage.Location = new Point(0, 0);
             pnlDownloadPage.Name = "pnlDownloadPage";
@@ -190,7 +191,7 @@
             tlpDownloadTables.Padding = new Padding(0, 0, 8, 0);
             tlpDownloadTables.RowCount = 1;
             tlpDownloadTables.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            tlpDownloadTables.Size = new Size(990, 440);
+            tlpDownloadTables.Size = new Size(990, 543);
             tlpDownloadTables.TabIndex = 6;
             // 
             // lblSaveFolder
@@ -295,40 +296,76 @@
             dgvDownload.Size = new Size(578, 412);
             dgvDownload.TabIndex = 0;
             // 
-            // lblLastSaved
-            // 
-            lblLastSaved.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            lblLastSaved.AutoSize = true;
-            lblLastSaved.ForeColor = Color.ForestGreen;
-            lblLastSaved.Location = new Point(12, 548);
-            lblLastSaved.Name = "lblLastSaved";
-            lblLastSaved.Size = new Size(200, 23);
-            lblLastSaved.TabIndex = 3;
-            lblLastSaved.Text = "Đã lưu: (chưa có tệp nào)";
-            // 
             // lblDownloadStats
             // 
-            lblDownloadStats.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            lblDownloadStats.AutoSize = true;
-            lblDownloadStats.ForeColor = Color.SteelBlue;
-            lblDownloadStats.Location = new Point(200, 548);
+            lblDownloadStats.AutoSize = false;
+            lblDownloadStats.Dock = DockStyle.Right;
+            lblDownloadStats.ForeColor = Color.FromArgb(214, 224, 240);
+            lblDownloadStats.Location = new Point(0, 0);
             lblDownloadStats.Name = "lblDownloadStats";
-            lblDownloadStats.Size = new Size(225, 23);
-            lblDownloadStats.TabIndex = 4;
+            lblDownloadStats.Padding = new Padding(0, 0, 14, 0);
+            lblDownloadStats.Size = new Size(340, 30);
+            lblDownloadStats.TabIndex = 1;
             lblDownloadStats.Text = "Tổng: 0 tệp | Đã tải: 0 | Lỗi: 0";
+            lblDownloadStats.TextAlign = ContentAlignment.MiddleRight;
+            // 
+            // pnlNotificationBar
+            // 
+            pnlNotificationBar.BackColor = Color.FromArgb(238, 240, 245);
+            pnlNotificationBar.Controls.Add(pnlNotificationBody);
+            pnlNotificationBar.Controls.Add(pnlNotificationHeader);
+            pnlNotificationBar.Dock = DockStyle.Bottom;
+            pnlNotificationBar.Location = new Point(0, 0);
+            pnlNotificationBar.Name = "pnlNotificationBar";
+            pnlNotificationBar.Size = new Size(1184, 150);
+            pnlNotificationBar.TabIndex = 2;
+            // 
+            // pnlNotificationHeader
+            // 
+            pnlNotificationHeader.BackColor = Color.FromArgb(64, 84, 120);
+            pnlNotificationHeader.Controls.Add(lblNotificationTitle);
+            pnlNotificationHeader.Controls.Add(lblDownloadStats);
+            pnlNotificationHeader.Dock = DockStyle.Top;
+            pnlNotificationHeader.Location = new Point(0, 0);
+            pnlNotificationHeader.Name = "pnlNotificationHeader";
+            pnlNotificationHeader.Size = new Size(1184, 30);
+            pnlNotificationHeader.TabIndex = 0;
+            // 
+            // lblNotificationTitle
+            // 
+            lblNotificationTitle.Dock = DockStyle.Fill;
+            lblNotificationTitle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            lblNotificationTitle.ForeColor = Color.White;
+            lblNotificationTitle.Location = new Point(0, 0);
+            lblNotificationTitle.Name = "lblNotificationTitle";
+            lblNotificationTitle.Padding = new Padding(14, 0, 0, 0);
+            lblNotificationTitle.Size = new Size(1184, 30);
+            lblNotificationTitle.TabIndex = 0;
+            lblNotificationTitle.Text = "Thông báo";
+            lblNotificationTitle.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // pnlNotificationBody
+            // 
+            pnlNotificationBody.BackColor = Color.FromArgb(238, 240, 245);
+            pnlNotificationBody.Controls.Add(txtNotification);
+            pnlNotificationBody.Dock = DockStyle.Fill;
+            pnlNotificationBody.Location = new Point(0, 30);
+            pnlNotificationBody.Name = "pnlNotificationBody";
+            pnlNotificationBody.Padding = new Padding(12, 8, 12, 12);
+            pnlNotificationBody.Size = new Size(1184, 120);
+            pnlNotificationBody.TabIndex = 1;
             // 
             // txtNotification
             // 
-            txtNotification.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             txtNotification.BackColor = Color.White;
-            txtNotification.ForeColor = Color.ForestGreen;
-            txtNotification.Location = new Point(12, 572);
-            txtNotification.Multiline = true;
+            txtNotification.BorderStyle = BorderStyle.FixedSingle;
+            txtNotification.Dock = DockStyle.Fill;
+            txtNotification.Font = new Font("Segoe UI", 9.75F);
+            txtNotification.ForeColor = Color.FromArgb(45, 45, 55);
             txtNotification.Name = "txtNotification";
             txtNotification.ReadOnly = true;
-            txtNotification.ScrollBars = ScrollBars.Vertical;
-            txtNotification.Size = new Size(990, 70);
-            txtNotification.TabIndex = 5;
+            txtNotification.ScrollBars = RichTextBoxScrollBars.Vertical;
+            txtNotification.TabIndex = 0;
             txtNotification.TabStop = false;
             // 
             // pnlManageFilePage
@@ -671,7 +708,7 @@
             MinimumSize = new Size(1000, 600);
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "UDM11 - Multi-File Downloader";
+            Text = "UDM11 - Trình tải nhiều tệp";
             WindowState = FormWindowState.Maximized;
             pnlSidebar.ResumeLayout(false);
             pnlContent.ResumeLayout(false);
@@ -720,9 +757,12 @@
         private Label lblSaveFolder;
         private TextBox txtSaveFolder;
         private Button btnChooseFolder;
-        private Label lblLastSaved;
         private Label lblDownloadStats;
-        private TextBox txtNotification;
+        private RichTextBox txtNotification;
+        private Panel pnlNotificationBar;
+        private Panel pnlNotificationHeader;
+        private Label lblNotificationTitle;
+        private Panel pnlNotificationBody;
         private DataGridView dgvManageFile;
         private Label lblManageFileTitle;
         private Panel pnlManageFileToolbar;

@@ -79,7 +79,7 @@ namespace Client
             CancellationToken cancellationToken)
         {
             if (_stream == null)
-                throw new InvalidOperationException("Chưa kết nối Server.");
+                throw new InvalidOperationException("Chưa kết nối máy chủ.");
 
             byte[] data = PacketHelper.Encode(packet);
 
@@ -110,7 +110,7 @@ namespace Client
             CancellationToken cancellationToken)
         {
             if (_reader == null)
-                throw new InvalidOperationException("Chưa kết nối Server.");
+                throw new InvalidOperationException("Chưa kết nối máy chủ.");
 
             using CancellationTokenSource readCts =
                 CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -121,7 +121,7 @@ namespace Client
 
             if (line == null)
             {
-                throw new IOException("Server đã đóng kết nối.");
+                throw new IOException("Máy chủ đã đóng kết nối.");
             }
 
             return PacketHelper.Decode(line);

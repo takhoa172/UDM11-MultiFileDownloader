@@ -32,6 +32,8 @@ public static class PacketValidator
             case PacketCommand.REGISTER:
             case PacketCommand.LOGIN:
             case PacketCommand.CHANGE_PASSWORD:
+            case PacketCommand.RESET_PASSWORD:
+            case PacketCommand.CHECK_USER:
             case PacketCommand.UPLOAD_REQ:
             case PacketCommand.UPLOAD_CHUNK:
             case PacketCommand.UPLOAD_DONE:
@@ -54,6 +56,8 @@ public static class PacketValidator
         if (fileName.Contains("..") || fileName.Contains("\\") || fileName.Contains('/'))
             return "400_INVALID_FILENAME";
         if (fileName.IndexOf('\0') >= 0)
+            return "400_INVALID_FILENAME";
+        if (fileName.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
             return "400_INVALID_FILENAME";
 
         return null;

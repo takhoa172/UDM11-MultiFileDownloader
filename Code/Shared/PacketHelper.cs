@@ -15,6 +15,8 @@ public enum PacketCommand
     REGISTER,
     LOGIN,
     CHANGE_PASSWORD,
+    RESET_PASSWORD,
+    CHECK_USER,
     AUTH_RESP,
     UPLOAD_REQ,
     UPLOAD_CHUNK,

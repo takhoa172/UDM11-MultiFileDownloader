@@ -13,7 +13,8 @@ public static class SettingHandler
         {
             Command = PacketCommand.SETTING_RESP,
             Success = error == null,
-            Message = error ?? "Da cap nhat toc do."
+            ErrorCode = error,
+            Message = error == null ? "Đã cập nhật tốc độ." : "Tốc độ tải không hợp lệ."
         });
 
         using CancellationTokenSource cts =

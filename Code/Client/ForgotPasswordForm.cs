@@ -19,7 +19,7 @@ namespace Client
             txtUsername.Focus();
         }
 
-        private void btnSubmit_Click(object? sender, EventArgs e)
+        private async void btnSubmit_Click(object? sender, EventArgs e)
         {
             lblError.Text = "";
 
@@ -32,8 +32,44 @@ namespace Client
                 return;
             }
 
-            _verifiedUsername = username;
-            ShowStep2();
+            btnSubmit.Enabled = false;
+            btnSubmit.Text = "Đang kiểm tra...";
+
+            try
+            {
+                ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket
+                {
+                    Command = PacketCommand.CHECK_USER,
+                    Username = username
+                });
+
+                if (response.Command != PacketCommand.AUTH_RESP || !response.Success)
+                {
+                    lblError.Text = response.Message ?? "Tài khoản không tồn tại.";
+                    txtUsername.Focus();
+                    return;
+                }
+
+                _verifiedUsername = username;
+                ShowStep2();
+            }
+            catch (SocketException)
+            {
+                lblError.Text = "Mất kết nối máy chủ.";
+            }
+            catch (OperationCanceledException)
+            {
+                lblError.Text = "Hết thời gian yêu cầu.";
+            }
+            catch (Exception ex)
+            {
+                lblError.Text = $"Lỗi: {ex.Message}";
+            }
+            finally
+            {
+                btnSubmit.Enabled = true;
+                btnSubmit.Text = "Xác nhận";
+            }
         }
 
         private void ShowStep2()
@@ -48,6 +84,13 @@ namespace Client
             txtNewPassword.Visible = true;
             lblConfirmPassword.Visible = true;
             txtConfirmPassword.Visible = true;
+            btnReset.Visible = true;
+
+            lblError.Location = new Point(31, 195);
+            btnReset.Location = new Point(31, 222);
+            btnCancel.Location = new Point(196, 222);
+            ClientSize = new Size(380, 275);
+            AcceptButton = btnReset;
 
             txtNewPassword.Focus();
         }
@@ -78,7 +121,7 @@ namespace Client
 
                 ProtocolPacket response = await _networkService.RequestAsync(new ProtocolPacket
                 {
-                    Command = PacketCommand.CHANGE_PASSWORD,
+                    Command = PacketCommand.RESET_PASSWORD,
                     Username = _verifiedUsername,
                     NewPasswordHash = HashHelper.CalculateSha256(Encoding.UTF8.GetBytes(newPassword))
                 });
@@ -97,7 +140,7 @@ namespace Client
             }
             catch (SocketException)
             {
-                lblError.Text = "Mất kết nối Server.";
+                lblError.Text = "Mất kết nối máy chủ.";
             }
             catch (OperationCanceledException)
             {

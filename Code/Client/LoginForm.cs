@@ -71,7 +71,7 @@ namespace Client
             }
             catch (SocketException)
             {
-                lblError.Text = "Mất kết nối Server.";
+                lblError.Text = "Mất kết nối máy chủ.";
             }
             catch (OperationCanceledException)
             {

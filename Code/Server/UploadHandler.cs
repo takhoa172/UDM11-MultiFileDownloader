@@ -45,7 +45,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "409_UPLOAD_IN_PROGRESS",
-                "Server dang xu ly mot file upload khac.",
+                "Máy chủ đang xử lý một tệp tải lên khác.",
                 cancellationToken);
 
             return;
@@ -70,7 +70,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_INVALID_SIZE",
-                "Kich thuoc file khong hop le.",
+                "Kích thước tệp không hợp lệ.",
                 cancellationToken);
 
             return;
@@ -80,7 +80,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "413_FILE_TOO_LARGE",
-                "File vuot qua gioi han 3 GB.",
+                "Tệp vượt quá giới hạn 3 GB.",
                 cancellationToken);
 
             return;
@@ -96,7 +96,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "409_FILE_EXISTS",
-                $"File '{fileName}' da ton tai tren Server.",
+                $"Tệp '{fileName}' đã tồn tại trên máy chủ.",
                 cancellationToken);
 
             return;
@@ -133,7 +133,7 @@ public sealed class UploadHandler : IDisposable
                     Command = PacketCommand.UPLOAD_REQ,
                     Success = true,
                     FileName = fileName,
-                    Message = "Server da san sang nhan file."
+                    Message = "Máy chủ đã sẵn sàng nhận tệp."
                 },
                 cancellationToken);
         }
@@ -166,7 +166,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_UPLOAD_NOT_STARTED",
-                "Chua co phien upload.",
+                "Chưa có phiên tải lên.",
                 cancellationToken);
 
             return;
@@ -176,7 +176,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "409_UPLOAD_COMPLETED",
-                "Phien upload da ket thuc.",
+                "Phiên tải lên đã kết thúc.",
                 cancellationToken);
 
             return;
@@ -186,7 +186,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_INVALID_CHUNK_INDEX",
-                $"Chunk khong dung thu tu. Server dang cho chunk {_expectedChunkIndex}.",
+                $"Mảnh dữ liệu không đúng thứ tự. Máy chủ đang chờ mảnh {_expectedChunkIndex}.",
                 cancellationToken);
 
             return;
@@ -198,7 +198,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_INVALID_CHUNK_COUNT",
-                "Tong so chunk khong khop voi UPLOAD_REQ.",
+                "Tổng số mảnh không khớp với yêu cầu tải lên.",
                 cancellationToken);
 
             return;
@@ -215,7 +215,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_INVALID_DATA",
-                "Du lieu chunk khong phai Base64 hop le.",
+                "Dữ liệu mảnh không phải Base64 hợp lệ.",
                 cancellationToken);
 
             return;
@@ -225,7 +225,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_EMPTY_CHUNK",
-                "Chunk khong duoc rong.",
+                "Mảnh dữ liệu không được rỗng.",
                 cancellationToken);
 
             return;
@@ -235,7 +235,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_SIZE_MISMATCH",
-                "Du lieu nhan duoc vuot qua kich thuoc file da khai bao.",
+                "Dữ liệu nhận được vượt quá kích thước tệp đã khai báo.",
                 cancellationToken);
 
             return;
@@ -261,7 +261,7 @@ public sealed class UploadHandler : IDisposable
                     Success = true,
                     FileName = _fileName,
                     ChunkIndex = request.ChunkIndex,
-                    Message = "Nhan chunk thanh cong."
+                    Message = "Nhận mảnh dữ liệu thành công."
                 },
                 cancellationToken);
         }
@@ -298,7 +298,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_UPLOAD_NOT_STARTED",
-                "Chua co phien upload.",
+                "Chưa có phiên tải lên.",
                 cancellationToken);
 
             return;
@@ -308,7 +308,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "409_UPLOAD_COMPLETED",
-                "Phien upload da ket thuc.",
+                "Phiên tải lên đã kết thúc.",
                 cancellationToken);
 
             return;
@@ -318,7 +318,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_SIZE_MISMATCH",
-                $"Kich thuoc file khong khop. Nhan {_receivedBytes}/{_totalSize} bytes.",
+                $"Kích thước tệp không khớp. Đã nhận {_receivedBytes}/{_totalSize} byte.",
                 cancellationToken);
 
             await CleanupUploadAsync();
@@ -330,7 +330,7 @@ public sealed class UploadHandler : IDisposable
         {
             await SendErrorAsync(
                 "400_CHUNK_COUNT_MISMATCH",
-                $"So chunk khong khop. Nhan {_expectedChunkIndex}/{_totalChunks} chunk.",
+                $"Số mảnh không khớp. Đã nhận {_expectedChunkIndex}/{_totalChunks} mảnh.",
                 cancellationToken);
 
             await CleanupUploadAsync();
@@ -352,7 +352,7 @@ public sealed class UploadHandler : IDisposable
             if (_tempFilePath is null)
             {
                 throw new IOException(
-                    "Khong xac dinh duoc file tam.");
+                    "Không xác định được tệp tạm.");
             }
 
             // Kiểm tra hash file sau khi ghi hoàn tất.
@@ -372,7 +372,7 @@ public sealed class UploadHandler : IDisposable
 
                 await SendErrorAsync(
                     "400_HASH_MISMATCH",
-                    "File upload bi loi: SHA-256 khong khop.",
+                    "Tải tệp lên thất bại: SHA-256 không khớp.",
                     cancellationToken);
 
                 ResetState();
@@ -389,7 +389,7 @@ public sealed class UploadHandler : IDisposable
 
                 await SendErrorAsync(
                     fileNameError,
-                    "Ten file khong hop le.",
+                    "Tên tệp không hợp lệ.",
                     cancellationToken);
 
                 ResetState();
@@ -403,7 +403,7 @@ public sealed class UploadHandler : IDisposable
 
                 await SendErrorAsync(
                     "409_FILE_EXISTS",
-                    $"File '{fileName}' da ton tai tren Server.",
+                    $"Tệp '{fileName}' đã tồn tại trên máy chủ.",
                     cancellationToken);
 
                 ResetState();
@@ -428,7 +428,7 @@ public sealed class UploadHandler : IDisposable
                     FileName = fileName,
                     FileHash = _expectedHash,
                     TotalSize = _receivedBytes,
-                    Message = "Upload file thanh cong."
+                    Message = "Tải tệp lên thành công."
                 },
                 cancellationToken);
 
@@ -562,13 +562,13 @@ public sealed class UploadHandler : IDisposable
         return errorCode switch
         {
             "400_INVALID_FILENAME" =>
-                "Ten file khong hop le.",
+                "Tên tệp không hợp lệ.",
 
             "413_FILE_TOO_LARGE" =>
-                "File vuot qua gioi han 3 GB.",
+                "Tệp vượt quá giới hạn 3 GB.",
 
             _ =>
-                "Thong tin upload khong hop le."
+                "Thông tin tải lên không hợp lệ."
         };
     }
 

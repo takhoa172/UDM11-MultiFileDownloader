@@ -38,6 +38,15 @@ public static class UserStore
         return true;
     }
 
+    public static bool UserExists(string username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            return false;
+
+        return LoadUsers().Any(u =>
+            string.Equals(u.Username, username.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
+
     public static bool ValidateLogin(string username, string password)
     {
         UserAccount? user = LoadUsers().FirstOrDefault(u =>

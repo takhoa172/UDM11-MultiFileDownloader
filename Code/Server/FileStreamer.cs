@@ -18,7 +18,7 @@ public static class FileStreamer
             await SendErrorAsync(
                 stream,
                 "404_NOT_FOUND",
-                "Khong tim thay file yeu cau.",
+                "Không tìm thấy tệp yêu cầu.",
                 cancellationToken);
 
             return;
