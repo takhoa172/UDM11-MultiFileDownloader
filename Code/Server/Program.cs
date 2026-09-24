@@ -125,7 +125,7 @@ static async Task HandleClientAsync(TcpClient client)
                         {
                             Command = PacketCommand.ERROR_RESP,
                             ErrorCode = rawError,
-                            Message = "Goi tin khong hop le"
+                            Message = "Gói tin không hợp lệ"
                         });
 
                     continue;
@@ -148,7 +148,7 @@ static async Task HandleClientAsync(TcpClient client)
                         {
                             Command = PacketCommand.ERROR_RESP,
                             ErrorCode = "400_BAD_REQUEST",
-                            Message = "Goi tin khong hop le."
+                            Message = "Gói tin không hợp lệ."
                         });
 
                     continue;
@@ -167,7 +167,7 @@ static async Task HandleClientAsync(TcpClient client)
                         {
                             Command = PacketCommand.ERROR_RESP,
                             ErrorCode = reqError,
-                            Message = "Lenh khong hop le"
+                            Message = "Lệnh không hợp lệ"
                         });
 
                     continue;
@@ -177,8 +177,9 @@ static async Task HandleClientAsync(TcpClient client)
                 {
                     connectionCounted = true;
 
-
-                    if (request.Command == PacketCommand.GET_LIST)
+                    // Log moi ket noi "chinh" (khong phai ket noi tai file
+                    // ngan han). Lenh dau tien co the la LOGIN/REGISTER/GET_LIST...
+                    if (request.Command != PacketCommand.DOWNLOAD_REQ)
                     {
                         isMainConnection = true;
                         ServerLogger.ClientConnected(clientIp, silent: false);
@@ -267,7 +268,7 @@ static async Task<UploadHandler?> ProcessRequestAsync(
             {
                 Command = PacketCommand.ERROR_RESP,
                 ErrorCode = "401_NOT_AUTHENTICATED",
-                Message = "Vui long dang nhap truoc."
+                Message = "Vui lòng đăng nhập trước."
             });
             return uploadHandler;
         }
@@ -279,7 +280,7 @@ static async Task<UploadHandler?> ProcessRequestAsync(
             {
                 Command = PacketCommand.ERROR_RESP,
                 ErrorCode = "403_SESSION_USER_MISMATCH",
-                Message = "Phien dang nhap khong hop le."
+                Message = "Phiên đăng nhập không hợp lệ."
             });
             return uploadHandler;
         }
@@ -310,7 +311,7 @@ static async Task<UploadHandler?> ProcessRequestAsync(
                             {
                                 Command = PacketCommand.ERROR_RESP,
                                 ErrorCode = "400_BAD_REQUEST",
-                                Message = "Ten file khong hop le."
+                                Message = "Tên tệp không hợp lệ."
                             });
 
                         break;
@@ -326,7 +327,7 @@ static async Task<UploadHandler?> ProcessRequestAsync(
                             {
                                 Command = PacketCommand.ERROR_RESP,
                                 ErrorCode = "400_BAD_REQUEST",
-                                Message = "Ten file khong hop le."
+                                Message = "Tên tệp không hợp lệ."
                             });
 
                         break;
@@ -355,6 +356,8 @@ static async Task<UploadHandler?> ProcessRequestAsync(
             case PacketCommand.REGISTER:
             case PacketCommand.LOGIN:
             case PacketCommand.CHANGE_PASSWORD:
+            case PacketCommand.RESET_PASSWORD:
+            case PacketCommand.CHECK_USER:
             case PacketCommand.LOGOUT:
                 await AuthHandler.HandleAsync(stream, request, session);
                 break;
@@ -371,7 +374,7 @@ static async Task<UploadHandler?> ProcessRequestAsync(
                     {
                         Command = PacketCommand.ERROR_RESP,
                         ErrorCode = "400_UPLOAD_NOT_STARTED",
-                        Message = "Chua co phien upload."
+                        Message = "Chưa có phiên tải lên."
                     });
                 }
                 else
@@ -387,7 +390,7 @@ static async Task<UploadHandler?> ProcessRequestAsync(
                     {
                         Command = PacketCommand.ERROR_RESP,
                         ErrorCode = "400_UPLOAD_NOT_STARTED",
-                        Message = "Chua co phien upload."
+                        Message = "Chưa có phiên tải lên."
                     });
                 }
                 else
@@ -424,7 +427,7 @@ static async Task<UploadHandler?> ProcessRequestAsync(
                     {
                         Command = PacketCommand.ERROR_RESP,
                         ErrorCode = "400_BAD_COMMAND",
-                        Message = "Lenh khong duoc Server ho tro."
+                        Message = "Lệnh không được máy chủ hỗ trợ."
                     });
 
                 break;
@@ -449,7 +452,7 @@ static async Task<UploadHandler?> ProcessRequestAsync(
                     Command = PacketCommand.ERROR_RESP,
                     ErrorCode = "500_REQUEST_ERROR",
                     Message =
-                        "Loi xu ly request. Request nay da ket thuc, Server van tiep tuc hoat dong."
+                        "Lỗi xử lý yêu cầu. Yêu cầu này đã kết thúc, máy chủ vẫn tiếp tục hoạt động."
                 });
         }
         catch

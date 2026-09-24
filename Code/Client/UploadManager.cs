@@ -20,14 +20,14 @@ namespace Client.Logic
 
             if (!fileInfo.Exists)
             {
-                MessageBox.Show("File chọn tải lên không tồn tại.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Tệp chọn tải lên không tồn tại.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false; // Hiện thông báo và dừng tải
             }
 
             //Hiển thị thông báo khi file > 3GB
             if (fileInfo.Length > MaxFileSize)
             {
-                MessageBox.Show("Kích thước file vượt 3GB!", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Kích thước tệp vượt quá 3GB!", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 

@@ -21,6 +21,12 @@ public static class AuthHandler
             case PacketCommand.CHANGE_PASSWORD:
                 await HandleChangePasswordAsync(stream, request);
                 break;
+            case PacketCommand.RESET_PASSWORD:
+                await HandleResetPasswordAsync(stream, request);
+                break;
+            case PacketCommand.CHECK_USER:
+                await HandleCheckUserAsync(stream, request);
+                break;
             case PacketCommand.LOGOUT:
                 await HandleLogoutAsync(stream, session);
                 break;
@@ -43,7 +49,7 @@ public static class AuthHandler
         ServerLogger.LogInfo($"[AUTH] Dang ky '{request.Username}' - {(ok ? "OK" : "FAIL")}");
 
         await SendAuthResponseAsync(stream, ok,
-            ok ? "Dang ky thanh cong." : "Ten dang nhap da ton tai.", null);
+            ok ? "Đăng ký thành công." : "Tên đăng nhập đã tồn tại.", null);
     }
 
     private static async Task HandleLoginAsync(
@@ -84,7 +90,7 @@ public static class AuthHandler
         }
 
         await SendAuthResponseAsync(stream, ok,
-            ok ? "Dang nhap thanh cong." : "Sai ten dang nhap hoac mat khau.", token);
+            ok ? "Đăng nhập thành công." : "Sai tên đăng nhập hoặc mật khẩu.", token);
     }
 
     private static async Task HandleChangePasswordAsync(NetworkStream stream, ProtocolPacket request)
@@ -105,7 +111,7 @@ public static class AuthHandler
         if (!UserStore.ValidateLogin(request.Username!, request.PasswordHash!))
         {
             ServerLogger.LogInfo($"[AUTH] Doi mat khau '{request.Username}' - FAIL (sai mat khau cu)");
-            await SendAuthResponseAsync(stream, false, "Sai mat khau hien tai.", null);
+            await SendAuthResponseAsync(stream, false, "Sai mật khẩu hiện tại.", null);
             return;
         }
 
@@ -113,7 +119,43 @@ public static class AuthHandler
         ServerLogger.LogInfo($"[AUTH] Doi mat khau '{request.Username}' - {(ok ? "OK" : "FAIL")}");
 
         await SendAuthResponseAsync(stream, ok,
-            ok ? "Doi mat khau thanh cong." : "Khong tim thay nguoi dung.", null);
+            ok ? "Đổi mật khẩu thành công." : "Không tìm thấy người dùng.", null);
+    }
+
+    private static async Task HandleResetPasswordAsync(NetworkStream stream, ProtocolPacket request)
+    {
+        string? error = PacketValidator.ValidateChangePassword(request.Username, request.NewPasswordHash);
+        if (error != null)
+        {
+            await SendAuthResponseAsync(stream, false, error, null);
+            return;
+        }
+
+        bool ok = UserStore.ChangePassword(request.Username!, request.NewPasswordHash!);
+        ServerLogger.LogInfo($"[AUTH] Dat lai mat khau '{request.Username}' - {(ok ? "OK" : "FAIL")}");
+
+        await SendAuthResponseAsync(stream, ok,
+            ok ? "Đặt lại mật khẩu thành công." : "Không tìm thấy người dùng.", null);
+    }
+
+    private static async Task HandleCheckUserAsync(NetworkStream stream, ProtocolPacket request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Username))
+        {
+            await SendAuthResponseAsync(stream, false, "400_INVALID_USERNAME", null);
+            return;
+        }
+
+        bool exists = UserStore.UserExists(request.Username);
+        ServerLogger.LogInfo(
+            $"[AUTH] Kiem tra tai khoan '{request.Username}' - {(exists ? "CO" : "KHONG")}");
+
+        await SendAuthResponseAsync(
+            stream,
+            exists,
+            exists ? "Tài khoản tồn tại." : "Tài khoản không tồn tại.",
+            null,
+            exists ? null : "404_USER_NOT_FOUND");
     }
 
     private static async Task HandleLogoutAsync(
@@ -125,7 +167,7 @@ public static class AuthHandler
             await SendAuthResponseAsync(
                 stream,
                 false,
-                "Phien dang nhap khong ton tai.",
+                "Phiên đăng nhập không tồn tại.",
                 null,
                 "401_NOT_AUTHENTICATED");
             return;
@@ -137,7 +179,7 @@ public static class AuthHandler
         session.Token = null;
 
         ServerLogger.LogInfo($"[AUTH] Dang xuat '{username}' - OK");
-        await SendAuthResponseAsync(stream, true, "Dang xuat thanh cong.", null);
+        await SendAuthResponseAsync(stream, true, "Đăng xuất thành công.", null);
     }
 
     private static async Task SendAuthResponseAsync(

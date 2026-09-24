@@ -16,32 +16,32 @@ public static class FileErrorHandler
             FileNotFoundException =>
                 new FileErrorInfo(
                     "404_NOT_FOUND",
-                    $"File '{fileName}' khong ton tai tren Server."),
+                    $"Tệp '{fileName}' không tồn tại trên máy chủ."),
 
             DirectoryNotFoundException =>
                 new FileErrorInfo(
                     "404_NOT_FOUND",
-                    $"Thu muc chua file '{fileName}' khong ton tai."),
+                    $"Thư mục chứa tệp '{fileName}' không tồn tại."),
 
             UnauthorizedAccessException =>
                 new FileErrorInfo(
                     "403_FORBIDDEN",
-                    $"Server khong co quyen truy cap file '{fileName}'."),
+                    $"Máy chủ không có quyền truy cập tệp '{fileName}'."),
 
             IOException when !File.Exists(filePath) =>
                 new FileErrorInfo(
                     "404_NOT_FOUND",
-                    $"File '{fileName}' da bi xoa hoac khong con ton tai."),
+                    $"Tệp '{fileName}' đã bị xóa hoặc không còn tồn tại."),
 
             IOException ioException =>
                 new FileErrorInfo(
                     "500_FILE_READ_ERROR",
-                    $"Khong the doc file '{fileName}': {ioException.Message}"),
+                    $"Không thể đọc tệp '{fileName}': {ioException.Message}"),
 
             _ =>
                 new FileErrorInfo(
                     "500_FILE_DOWNLOAD_ERROR",
-                    $"Loi xu ly file '{fileName}': {exception.Message}")
+                    $"Lỗi xử lý tệp '{fileName}': {exception.Message}")
         };
     }
 }
